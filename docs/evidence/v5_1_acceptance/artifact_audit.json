@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0",
+  "scienceflow_commit": "8f6e0576bb56020a04352054c81f91d4cd4bbe64",
+  "inquirycraft_commit": "502b8a48ea42aa00d6e8855f823036edba96daee",
+  "cpu_manifests": {
+    "circle_packing_w2_1h_cpu0-15.yaml": "0-15",
+    "nomad2018_deep_w2_1h_cpu16-31.yaml": "16-31",
+    "tfbind8_w2_1h_cpu32-47.yaml": "32-47"
+  },
+  "circle": {
+    "status": "success",
+    "agent_status": "timed_out_fallback",
+    "requirement_met": true,
+    "valid_final_count": 3,
+    "required_final_count": 3,
+    "finals": [
+      {
+        "final_id": "final_00",
+        "circle_count": 26,
+        "finite": true,
+        "nonnegative": true,
+        "in_unit_square": true,
+        "nonoverlap": true,
+        "sha256_matches": true,
+        "metric": 2.628490185392066,
+        "selection_eligible": true
+      },
+      {
+        "final_id": "final_01",
+        "circle_count": 26,
+        "finite": true,
+        "nonnegative": true,
+        "in_unit_square": true,
+        "nonoverlap": true,
+        "sha256_matches": true,
+        "metric": 2.610025963599715,
+        "selection_eligible": true
+      },
+      {
+        "final_id": "final_02",
+        "circle_count": 26,
+        "finite": true,
+        "nonnegative": true,
+        "in_unit_square": true,
+        "nonoverlap": true,
+        "sha256_matches": true,
+        "metric": 2.585450609865254,
+        "selection_eligible": true
+      }
+    ],
+    "geometry_tolerance": 1e-06,
+    "all_legal": true
+  },
+  "nomad": {
+    "status": "insufficient_finals",
+    "agent_status": "timed_out_fallback",
+    "requirement_met": false,
+    "valid_final_count": 2,
+    "required_final_count": 3,
+    "finals": [
+      {
+        "final_id": "final_00",
+        "row_count": 240,
+        "columns": [
+          "id",
+          "formation_energy_ev_natom",
+          "bandgap_energy_ev"
+        ],
+        "unique_ids": true,
+        "finite": true,
+        "nonnegative": true,
+        "sha256_matches": true,
+        "source_metric": 1.019246,
+        "source_selection_eligible": true,
+        "reevaluation_status": "validated_no_metric",
+        "reevaluation_gate_accepted": false
+      },
+      {
+        "final_id": "final_01",
+        "row_count": 240,
+        "columns": [
+          "id",
+          "formation_energy_ev_natom",
+          "bandgap_energy_ev"
+        ],
+        "unique_ids": true,
+        "finite": true,
+        "nonnegative": true,
+        "sha256_matches": true,
+        "source_metric": 1.019246,
+        "source_selection_eligible": true,
+        "reevaluation_status": "validated_no_metric",
+        "reevaluation_gate_accepted": false
+      }
+    ],
+    "all_artifacts_legal": true
+  },
+  "tfbind8": {
+    "status": "success",
+    "mode": "best_stage",
+    "selected_worker": "W01",
+    "selected_stage": "S01",
+    "selected_metric": 0.973801,
+    "metric_authoritative": true,
+    "candidate_count": 32,
+    "unique": true,
+    "legal_alphabet_and_length": true,
+    "sha256_matches": true,
+    "evaluator_events": [
+      {
+        "worker": "W00",
+        "stage": "S01",
+        "authoritative": true,
+        "metric": 0.9023687839508057,
+        "best_k_mean_regret": 0.09654474258422852,
+        "global_ndcg": 0.6575516816775289,
+        "queries_used": 1,
+        "queries_remaining": 9,
+        "query_cache_hit": false,
+        "query_sha256": "58eebdb507a1c97aebf5c04fd532453f8d901ffdd22536e9f8aaa287cc082f12"
+      },
+      {
+        "worker": "W01",
+        "stage": "S01",
+        "authoritative": true,
+        "metric": 0.9738011717796325,
+        "best_k_mean_regret": 0.025112354755401634,
+        "global_ndcg": 0.9132261742623502,
+        "queries_used": 1,
+        "queries_remaining": 9,
+        "query_cache_hit": false,
+        "query_sha256": "f2af3636a1392f84cb63ac8c230839b5ce11ccbb3d8050f4fb8a1a73a6f25e1c"
+      }
+    ],
+    "selection_direction_correct": true
+  },
+  "runtime": {
+    "session_failed_count": 0,
+    "forbidden_async_generator_errors": [],
+    "provider_max_elapsed": [
+      {
+        "worker": "v5-nomad2018-deep-w2-1h/nomad2018-predict-transparent-conductors/workers/w00",
+        "max_elapsed_sec": 705.2801709361374
+      },
+      {
+        "worker": "v5-circle-packing-w2-1h/circle-packing/workers/w00",
+        "max_elapsed_sec": 613.1519683524966
+      },
+      {
+        "worker": "v5-tfbind8-w2-1h/sci-modeling-bench-tfbind8/workers/w00",
+        "max_elapsed_sec": 506.1372414417565
+      },
+      {
+        "worker": "v5-tfbind8-w2-1h/sci-modeling-bench-tfbind8/workers/w01",
+        "max_elapsed_sec": 352.2258945554495
+      },
+      {
+        "worker": "v5-circle-packing-w2-1h/circle-packing/workers/w01",
+        "max_elapsed_sec": 350.6334260106087
+      },
+      {
+        "worker": "v5-nomad2018-deep-w2-1h/nomad2018-predict-transparent-conductors/workers/w01",
+        "max_elapsed_sec": 142.69928324595094
+      }
+    ],
+    "residual_scienceflow_processes": []
+  }
+}

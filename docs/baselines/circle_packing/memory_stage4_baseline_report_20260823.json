@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "gate": "memory_stage4_same_physical_path_baseline",
+  "status": "baseline_saved_candidate_deferred",
+  "reason": "Pure engineering migration uses fast layered gates; the candidate side is deferred to the final runtime-switch gate.",
+  "baseline_code": "d9b650b",
+  "manifest": "scripts/circle_packing_3seed_memory_stage4_same_path_20260822.yaml",
+  "workspace_archive": "/home/mingming/miing_agents_wsp/scienceflow_runtime_gate_common/circle_packing_memory_stage4_baseline_archive_20260822",
+  "contract_manifest_archive": "/home/mingming/miing_agents_wsp/scienceflow_runtime_gate_common/memory_stage4_contracts_20260823",
+  "worker_count": 2,
+  "runs": [
+    {
+      "seed": 2222,
+      "run_id": "memory-stage4-seed2222",
+      "status": "completed",
+      "elapsed_sec": 256.2,
+      "metric_name": "radii_sum",
+      "metric_value": 2.16602261940063,
+      "validation_ok": true,
+      "selection_eligible": true,
+      "workspace_entry_count": 496
+    },
+    {
+      "seed": 3333,
+      "run_id": "memory-stage4-seed3333",
+      "status": "completed",
+      "elapsed_sec": 329.2,
+      "metric_name": "radii_sum",
+      "metric_value": 2.3801381750708424,
+      "validation_ok": true,
+      "selection_eligible": true,
+      "workspace_entry_count": 508
+    },
+    {
+      "seed": 4444,
+      "run_id": "memory-stage4-seed4444",
+      "status": "completed",
+      "elapsed_sec": 255.5,
+      "metric_name": "radii_sum",
+      "metric_value": 2.4916996199873798,
+      "validation_ok": true,
+      "selection_eligible": true,
+      "workspace_entry_count": 475
+    }
+  ]
+}

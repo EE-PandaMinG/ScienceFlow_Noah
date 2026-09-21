@@ -1,0 +1,211 @@
+{
+  "baseline_commit": "6821ab7e73fe058c9b6f5e57834aab12641f5b0a",
+  "baseline_version": "baseline_v2",
+  "candidate_commit": "4448f42d877feb79165a72edc0f7542f98d5aa9f",
+  "cases": [
+    {
+      "case_id": "deepcraft_runtime_resume",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "deepcraft_runtime_tool_turn",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "legacy_message_memory",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "scienceflow_retry_stop",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "scienceflow_text_turn",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "scienceflow_tool_turn",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "snapshot_stop_resume_recovery",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "stage_gate_resource_decision",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "tool_dispatch_and_interrupt",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    },
+    {
+      "case_id": "worker2_estra_merge",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    }
+  ],
+  "environment": {
+    "dependency_lock_sha256": "4375e6be3d2251f6e9ee752f833d6e887a206ceba01a8c7d81e98218fefe2975",
+    "python": "3.12.13"
+  },
+  "jobs": 4,
+  "schema_version": 1,
+  "suite": "full",
+  "totals": {
+    "context_diff_count": 0,
+    "failed_cases": 0,
+    "mechanism_diff_count": 0,
+    "workspace_unregistered_diff_count": 0
+  },
+  "verdict": "pass"
+}

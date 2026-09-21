@@ -1,0 +1,89 @@
+{
+  "aggregate": {},
+  "failures": [
+    "missing reference seeds: [4444]",
+    "seed 3333: candidate quality regressed"
+  ],
+  "gate": "circle_packing_three_seed_effect",
+  "passed": false,
+  "policy": {
+    "ignore_runtime": false,
+    "max_runtime_regression_pct": 10.0,
+    "requirements": [
+      "all paired runs completed with valid eligible evaluations",
+      "every paired seed preserves metric quality",
+      "aggregate median and worst-seed metric preserve quality",
+      "every paired seed and aggregate median preserve runtime unless explicitly ignored"
+    ],
+    "score_tolerance_pct": 0.0
+  },
+  "rows": [
+    {
+      "candidate": {
+        "elapsed_sec": 424.1,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.16602261940063,
+        "run_id": "resume-stage2-candidate-seed2222",
+        "seed": 2222,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_lib/workspaces/circle_packing_resume_stage2_candidate_20260822/resume-stage2-candidate-seed2222/circle-packing",
+        "validation_ok": true
+      },
+      "elapsed_delta_sec": -94.69999999999993,
+      "metric_delta": 0.3460226194006295,
+      "quality_pass": true,
+      "reference": {
+        "elapsed_sec": 518.8,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 1.8200000000000003,
+        "run_id": "resume-stage2-baseline-seed2222",
+        "seed": 2222,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_resume_stage2_baseline/workspaces/circle_packing_resume_stage2_baseline_20260822/resume-stage2-baseline-seed2222/circle-packing",
+        "validation_ok": true
+      },
+      "runtime_pass": true,
+      "seed": 2222
+    },
+    {
+      "candidate": {
+        "elapsed_sec": 251.4,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.3801381750708424,
+        "run_id": "resume-stage2-candidate-seed3333",
+        "seed": 3333,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_lib/workspaces/circle_packing_resume_stage2_candidate_20260822/resume-stage2-candidate-seed3333/circle-packing",
+        "validation_ok": true
+      },
+      "elapsed_delta_sec": -226.6,
+      "metric_delta": -0.033800524022162826,
+      "quality_pass": false,
+      "reference": {
+        "elapsed_sec": 478.0,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.413938699093005,
+        "run_id": "resume-stage2-baseline-seed3333",
+        "seed": 3333,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_resume_stage2_baseline/workspaces/circle_packing_resume_stage2_baseline_20260822/resume-stage2-baseline-seed3333/circle-packing",
+        "validation_ok": true
+      },
+      "runtime_pass": true,
+      "seed": 3333
+    }
+  ],
+  "seeds": [
+    2222,
+    3333,
+    4444
+  ]
+}

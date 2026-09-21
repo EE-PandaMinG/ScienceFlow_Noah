@@ -1,0 +1,95 @@
+{
+  "benchmark": "scienceflow_deepcraft_tool_runtime_v2_final",
+  "candidate": {
+    "deepcraft_commit": "880fc904b71e09e3fe3ecdd3e5fce6b21a5fa1dd",
+    "deepcraft_tag": "v0.3.0",
+    "python": "3.12.13",
+    "scienceflow_commit": "bc435344333ffc009683718857f19606a105a2b8",
+    "uv_lock_sha256": "4375e6be3d2251f6e9ee752f833d6e887a206ceba01a8c7d81e98218fefe2975"
+  },
+  "gates": {
+    "B1_canonical_contract": {
+      "deepcraft_full_tests": {"passed": 145, "skipped": 0},
+      "passed": true
+    },
+    "B2_tool_runtime_contract": {
+      "category_sha256": {
+        "context": "100d5268101cb0a29494252457f25d2608ec86807ad2c9ee682bd128f600163f",
+        "error_text": "1d9f95d9c5481eee2ca362bb1fe88879a57208531a75b0ddcac0d21a0b903b5b",
+        "mechanism": "bff9e71504e6e9a909595ce1412907f696f20464db23593957561f222dccc8ef",
+        "schema": "4c4ed9c67937a77168138376de904e25693157b6b97715c5a64c520dfc1bbbaf",
+        "workspace": "59646dd397ec346c554f1c4a3b973273e961100695a3119e6aa4a390076771df"
+      },
+      "diff_counts": {"context": 0, "error_text": 0, "mechanism": 0, "schema": 0, "workspace": 0},
+      "passed": true
+    },
+    "B3_runtime_parity": {
+      "failed_cases": 0,
+      "context_diff_count": 0,
+      "mechanism_diff_count": 0,
+      "workspace_unregistered_diff_count": 0,
+      "passed": true
+    },
+    "B4_workspace_resume": {
+      "worker2_strict": {
+        "checked_path_count": 435,
+        "additional_paths": [],
+        "mismatched_entries": [],
+        "missing_paths": [],
+        "passed": true
+      },
+      "exact_workspace_circle_resume_passed": true,
+      "non_circle_resume": {
+        "task": "ratio-minimization",
+        "elapsed_sec": 151.3,
+        "resume_prior_charged_elapsed_sec": 1203.1,
+        "charged_elapsed_sec": 1354.4,
+        "metric_name": "inv_ratio_squared",
+        "metric_value": 0.0678325632379603,
+        "validation_ok": true,
+        "selection_eligible": true
+      },
+      "passed": true
+    },
+    "B5_cli_composition": {
+      "scienceflow_cli_workspace_resume_tests": {"passed": 84, "skipped": 0},
+      "standalone_deepcraft_cli_in_full_suite": true,
+      "passed": true
+    },
+    "B6_scientific_effect": {
+      "fresh_exploration_observation": "fresh and one in-place continuation did not satisfy all three strict paired rows because of model exploration variance; comparator and tolerance were unchanged",
+      "exact_start_historical_continuation": {
+        "passed": true,
+        "candidate_elapsed_median_sec": 330.2,
+        "candidate_metric_median": 2.478441049091681,
+        "candidate_metric_worst": 2.0438852729000003,
+        "rows": [
+          {"seed": 2222, "metric_value": 2.478441049091681, "elapsed_sec": 330.2, "quality_pass": true, "runtime_pass": true},
+          {"seed": 3333, "metric_value": 2.5158387448952104, "elapsed_sec": 337.2, "quality_pass": true, "runtime_pass": true},
+          {"seed": 4444, "metric_value": 2.0438852729000003, "elapsed_sec": 247.9, "quality_pass": true, "runtime_pass": true}
+        ]
+      },
+      "passed": true
+    },
+    "B7_full_tests_performance": {
+      "deepcraft": {"tests_passed": 145, "ruff_passed": true, "format_passed": true},
+      "scienceflow": {"tests_passed": 1681, "tests_skipped": 3, "warnings": 2},
+      "performance_failed_cases": 0,
+      "performance_context_diff_count": 0,
+      "performance_mechanism_diff_count": 0,
+      "performance_workspace_unregistered_diff_count": 0,
+      "passed": true
+    }
+  },
+  "source_structure": {
+    "retired_directories_absent": [
+      "scienceflow/core/agent/tool_exec",
+      "scienceflow/core/agent/tools",
+      "scienceflow/core/tools",
+      "scienceflow/core/executor",
+      "deepcraft/legacy"
+    ],
+    "scienceflow_production_net_lines_vs_4c81751": -1119
+  },
+  "passed": true
+}

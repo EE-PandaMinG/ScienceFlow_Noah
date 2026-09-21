@@ -1,0 +1,127 @@
+{
+  "aggregate": {
+    "candidate_elapsed_median_sec": 251.5,
+    "candidate_metric_median": 2.3801381750708424,
+    "candidate_metric_worst": 2.16602261940063,
+    "median_quality_pass": true,
+    "reference_elapsed_median_sec": 259.6,
+    "reference_metric_median": 2.3801381750708424,
+    "reference_metric_worst": 2.16602261940063,
+    "runtime_median_pass": true,
+    "worst_quality_pass": true
+  },
+  "failures": [],
+  "gate": "circle_packing_three_seed_effect",
+  "passed": true,
+  "policy": {
+    "ignore_runtime": false,
+    "max_runtime_regression_pct": 10.0,
+    "requirements": [
+      "all paired runs completed with valid eligible evaluations",
+      "every paired seed preserves metric quality",
+      "aggregate median and worst-seed metric preserve quality",
+      "every paired seed and aggregate median preserve runtime unless explicitly ignored"
+    ],
+    "score_tolerance_pct": 0.0
+  },
+  "rows": [
+    {
+      "candidate": {
+        "elapsed_sec": 251.5,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.16602261940063,
+        "run_id": "memory-stage3-seed2222",
+        "seed": 2222,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_lib/workspaces/circle_packing_memory_stage3_candidate_20260822/memory-stage3-seed2222/circle-packing",
+        "validation_ok": true
+      },
+      "elapsed_delta_sec": -8.0,
+      "metric_delta": 0.0,
+      "quality_pass": true,
+      "reference": {
+        "elapsed_sec": 259.5,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.16602261940063,
+        "run_id": "memory-stage3-seed2222",
+        "seed": 2222,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_memory_stage3_baseline/workspaces/circle_packing_memory_stage3_baseline_20260822/memory-stage3-seed2222/circle-packing",
+        "validation_ok": true
+      },
+      "runtime_pass": true,
+      "seed": 2222
+    },
+    {
+      "candidate": {
+        "elapsed_sec": 331.5,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.3801381750708424,
+        "run_id": "memory-stage3-seed3333",
+        "seed": 3333,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_lib/workspaces/circle_packing_memory_stage3_candidate_20260822/memory-stage3-seed3333/circle-packing",
+        "validation_ok": true
+      },
+      "elapsed_delta_sec": -1.8000000000000114,
+      "metric_delta": 0.0,
+      "quality_pass": true,
+      "reference": {
+        "elapsed_sec": 333.3,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.3801381750708424,
+        "run_id": "memory-stage3-seed3333",
+        "seed": 3333,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_memory_stage3_baseline/workspaces/circle_packing_memory_stage3_baseline_20260822/memory-stage3-seed3333/circle-packing",
+        "validation_ok": true
+      },
+      "runtime_pass": true,
+      "seed": 3333
+    },
+    {
+      "candidate": {
+        "elapsed_sec": 251.5,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.4916996199873798,
+        "run_id": "memory-stage3-seed4444",
+        "seed": 4444,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_lib/workspaces/circle_packing_memory_stage3_candidate_20260822/memory-stage3-seed4444/circle-packing",
+        "validation_ok": true
+      },
+      "elapsed_delta_sec": -8.100000000000023,
+      "metric_delta": 0.0,
+      "quality_pass": true,
+      "reference": {
+        "elapsed_sec": 259.6,
+        "lower_is_better": false,
+        "metric_name": "radii_sum",
+        "metric_value": 2.4916996199873798,
+        "run_id": "memory-stage3-seed4444",
+        "seed": 4444,
+        "selection_eligible": true,
+        "status": "completed",
+        "task_dir": "/home/mingming/miing_agents_wsp/scienceflow_memory_stage3_baseline/workspaces/circle_packing_memory_stage3_baseline_20260822/memory-stage3-seed4444/circle-packing",
+        "validation_ok": true
+      },
+      "runtime_pass": true,
+      "seed": 4444
+    }
+  ],
+  "seeds": [
+    2222,
+    3333,
+    4444
+  ]
+}

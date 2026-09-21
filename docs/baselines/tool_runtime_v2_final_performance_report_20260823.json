@@ -1,0 +1,58 @@
+{
+  "baseline_commit": "6821ab7e73fe058c9b6f5e57834aab12641f5b0a",
+  "baseline_version": "baseline_v2",
+  "candidate_commit": "4448f42d877feb79165a72edc0f7542f98d5aa9f",
+  "cases": [
+    {
+      "case_id": "performance_microbench",
+      "compatible": true,
+      "diff_count": 0,
+      "sections": {
+        "context": {
+          "diff_count": 0,
+          "differences": []
+        },
+        "mechanism": {
+          "diff_count": 0,
+          "differences": [],
+          "metrics": {
+            "context_build": {
+              "median_ms": 0.001136,
+              "p95_ms": 0.00119
+            },
+            "event_build": {
+              "median_ms": 0.001655,
+              "p95_ms": 0.001736
+            },
+            "memory_append_retrieve": {
+              "median_ms": 0.015311,
+              "p95_ms": 0.016586
+            },
+            "tool_dispatch": {
+              "median_ms": 0.001582,
+              "p95_ms": 0.001627
+            }
+          }
+        },
+        "workspace": {
+          "diff_count": 0,
+          "differences": []
+        }
+      }
+    }
+  ],
+  "environment": {
+    "dependency_lock_sha256": "4375e6be3d2251f6e9ee752f833d6e887a206ceba01a8c7d81e98218fefe2975",
+    "python": "3.12.13"
+  },
+  "jobs": 1,
+  "schema_version": 1,
+  "suite": "performance",
+  "totals": {
+    "context_diff_count": 0,
+    "failed_cases": 0,
+    "mechanism_diff_count": 0,
+    "workspace_unregistered_diff_count": 0
+  },
+  "verdict": "pass"
+}

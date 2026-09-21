@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "beta_pre_v5_reference": "72b2ec478ebd7cbeff4cd77822bc1525890ba7a6",
+  "upstream_reference": "fd54f300abab5d11912f363870af5af4145a67a2",
+  "approved_differences": [
+    {
+      "id": "mlebench-public-view-boundary",
+      "scope": "data_access",
+      "rule": "Agent and ScienceFlow runtime may access only the public dataset view; the complete mlebench_data_root_dir belongs to a separate trusted evaluator.",
+      "algorithm_change": false
+    },
+    {
+      "id": "provider-system-message-coalescing",
+      "scope": "provider_projection",
+      "rule": "Ordered system layers may be joined into one leading system message when required by the provider chat template; content and order must remain byte-identical before joining.",
+      "algorithm_change": false
+    }
+  ],
+  "default_policy": "unlisted differences fail parity"
+}

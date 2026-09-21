@@ -1,0 +1,27 @@
+{
+  "before": {
+    "prompt_tokens_total": 285811853.0,
+    "generation_tokens_total": 12594005.0,
+    "request_success_total": 12575.0,
+    "num_requests_running": 7.0,
+    "num_requests_waiting": 0.0,
+    "prefix_cache_hits_total": 242416720.0,
+    "prefix_cache_queries_total": 294805052.0
+  },
+  "after": {
+    "prompt_tokens_total": 292987412.0,
+    "generation_tokens_total": 13009781.0,
+    "request_success_total": 12848.0,
+    "num_requests_running": 1.0,
+    "num_requests_waiting": 0.0,
+    "prefix_cache_hits_total": 248586800.0,
+    "prefix_cache_queries_total": 302142322.0
+  },
+  "delta": {
+    "prompt_tokens_total": 7175559.0,
+    "generation_tokens_total": 415776.0,
+    "request_success_total": 273.0,
+    "prefix_cache_hits_total": 6170080.0,
+    "prefix_cache_queries_total": 7337270.0
+  }
+}

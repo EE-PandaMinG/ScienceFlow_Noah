@@ -1,0 +1,5 @@
+Launching 1 tasks (max_concurrent=1)
+
+run_id                           Status         Time  Exit
+------------------------------------------------------------
+v5-nomad2018-deep-w2-1h          success       3575s     0
