@@ -188,7 +188,6 @@ include = ["scienceflow*", "tasks*"]
 exclude = [
     "workspace*",
     "doc*",
-    "scripts*",
     "tests*",
     "parallel_logs*",
     "cache*",
@@ -223,6 +222,9 @@ namespaces = true
     "stage/*.md",
     "task/*/*.md",
 ]
+
+[tool.setuptools.data-files]
+"share/scienceflow/skills/data_processing" = ["skills/data_processing/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

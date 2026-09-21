@@ -236,7 +236,7 @@ quality/finalization/
 
 完成条件：度量脚本可重复；owner 清单覆盖 coordinator、observer、ResourceRuntime 和 ScienceAgent 全部绑定面。
 
-当前状态：已完成。`tools/architecture/v5_2_structure_metrics.py` 可重复生成结构快照和剩余 façade owner matrix；
+当前状态：已完成。`tests/support/architecture/v5_2_structure_metrics.py` 可重复生成结构快照和剩余 façade owner matrix；
 当前 matrix 有 302 个绑定（`LnrSolver` 234、`ScienceAgent` 68），Observer/ResourceRuntime
 已由显式 composition owner 覆盖，不再产生 descriptor 绑定行。
 

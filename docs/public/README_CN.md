@@ -63,9 +63,9 @@ scienceflow tui --workspace "$PWD/sf_workspace"
 ```
 
 默认配置位于 `~/.config/scienceflow/models.json`，权限为 `600`；API Key 不会复制到
-manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIGURATION.md)，工作区和
-恢复选项可运行 `scienceflow tui --help` 查看。进入 TUI 后，使用 `/long-research`
-准备并启动托管研究任务。
+manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIGURATION.md)，也可参考
+[脱敏的多端点配置示例](../examples/models.example.json)。工作区和恢复选项可运行
+`scienceflow tui --help` 查看。进入 TUI 后，使用 `/long-research` 准备并启动托管研究任务。
 
 ## 最新动态
 
@@ -95,7 +95,8 @@ manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIG
 ```bash
 cd ScienceFlow
 uv sync --python 3.12 --group dev
-uv run scienceflow --help
+uv run scienceflow config init
+uv run scienceflow tui --workspace "$PWD/sf_workspace"
 ```
 
 默认命令安装 Light 开发环境。只有需要 ML、GPU、MLE-bench 和 scientific-design 依赖时，
@@ -106,7 +107,7 @@ python -m pip install "scienceflow[full]"==0.2.0b3
 ```
 
 ScienceFlow 在进程内使用 InquiryCraft `0.9.0` 作为通用 Agent Runtime，不需要另起服务。
-容器与 Compose 用法见 [`deploy/README.md`](../../deploy/README.md)。
+源码环境与 PyPI 安装使用相同的 CLI 和用户私有模型注册表。
 
 ## 文档
 

@@ -1,10 +1,10 @@
 # ScienceFlow 统一 TUI 与自然语言长程 Onboarding 规划 V1
 
 状态：已由 [`plan_v2.md`](plan_v2.md) 替代
-日期：2026-09-02
-实施分支：`product`
-规划基线：`66bfe05`（Light/Full 产品安装与部署档位）
-关联规划：[`../plan_v5.2.md`](../plan_v5.2.md)
+日期：2026-09-02  
+实施分支：`product`  
+规划基线：`66bfe05`（Light/Full 产品安装与部署档位）  
+关联规划：[`../plan_v5.2.md`](../plan_v5.2.md)  
 长程机制验收：[`../../../benchmark/bench_sf_v1.md`](../../../benchmark/bench_sf_v1.md)
 
 ## 1. 结论

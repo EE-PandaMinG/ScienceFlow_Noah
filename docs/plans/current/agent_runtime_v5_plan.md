@@ -1,11 +1,11 @@
 # ScienceFlow V5：Agent Runtime 所有权收口与 InquiryCraft 下沉计划
 
-状态：本地实现与发布门禁完成；远端三个 1h case 待验收
-日期：2026-08-29
-最近实施刷新：2026-08-29（Agent/Runtime 所有权收口）
-ScienceFlow 实施分支：`multi_modules_v3_2`
-ScienceFlow 基线提交：`72b2ec478ebd7cbeff4cd77822bc1525890ba7a6`
-InquiryCraft 实施分支：`agent_runtime_v5`
+状态：本地实现与发布门禁完成；远端三个 1h case 待验收  
+日期：2026-08-29  
+最近实施刷新：2026-08-29（Agent/Runtime 所有权收口）  
+ScienceFlow 实施分支：`multi_modules_v3_2`  
+ScienceFlow 基线提交：`72b2ec478ebd7cbeff4cd77822bc1525890ba7a6`  
+InquiryCraft 实施分支：`agent_runtime_v5`  
 InquiryCraft 锁定提交：`46329a41702ad667f13f248ca8bd964baf13e3e6`
 
 ## 0. 实施快照
