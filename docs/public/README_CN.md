@@ -36,11 +36,11 @@ ScienceFlow 在机器学习、科学建模和数学优化任务上持续开展�
 推荐使用 [`uv`](https://docs.astral.sh/uv/) 隔离安装命令行工具：
 
 ```bash
-uv tool install scienceflow==0.2.0b4
+uv tool install scienceflow==0.2.0b5
 scienceflow --help
 ```
 
-也可以使用 `pipx install scienceflow==0.2.0b4`。Debian 和 Ubuntu 的系统 Python
+也可以使用 `pipx install scienceflow==0.2.0b5`。Debian 和 Ubuntu 的系统 Python
 可能会拒绝普通的全局 `pip install`，并提示 `externally-managed-environment`（PEP 668）。
 这是系统保护机制，请使用 `uv tool`、`pipx` 或虚拟环境，不要使用
 `--break-system-packages`。
@@ -51,7 +51,7 @@ scienceflow --help
 python3 -m venv ~/.venvs/scienceflow
 source ~/.venvs/scienceflow/bin/activate
 python -m pip install --upgrade pip
-python -m pip install scienceflow==0.2.0b4
+python -m pip install scienceflow==0.2.0b5
 ```
 
 首次使用时创建模型注册表，编辑生成的文件，然后启动 TUI：
@@ -103,7 +103,7 @@ uv run scienceflow tui --workspace "$PWD/sf_workspace"
 才使用 `uv sync --extra full --group dev`。发布包的 Full profile 应在虚拟环境内安装：
 
 ```bash
-python -m pip install "scienceflow[full]"==0.2.0b4
+python -m pip install "scienceflow[full]"==0.2.0b5
 ```
 
 ScienceFlow 在进程内使用 InquiryCraft `0.9.0` 作为通用 Agent Runtime，不需要另起服务。
