@@ -126,11 +126,11 @@ scienceflow web --workspace /path/to/workspace
 预检和运行。
 容器与 Compose 用法见 [`deploy/README.md`](../../deploy/README.md)。
 
-正式版本发布后，可选择轻量控制面或完整依赖安装：
+测试预览包发布后，请精确固定预发布版本，避免后续 Preview 自动改变测试环境：
 
 ```bash
-pip install scienceflow
-pip install "scienceflow[full]"
+pip install "scienceflow==0.2.0b1"
+pip install "scienceflow[full]==0.2.0b1"
 ```
 
 ## 配置要点
@@ -181,5 +181,6 @@ pip install "scienceflow[full]"
   tests/test_long_research_interaction.py
 ```
 
-公共依赖与锁文件完成对齐后，发布回归命令为 `uv run --locked pytest -q`。ML、GPU、
-MLE-bench 与 scientific-design 测试需要对应的可选依赖。
+发布 workflow 仅接受与项目版本一致的 tag；它会构建并检查 wheel 与源码包，在干净环境中
+安装 wheel，运行公共依赖契约，再通过 PyPI Trusted Publishing 上传。完整回归命令为
+`uv run --locked pytest -q`。ML、GPU、MLE-bench 与 scientific-design 测试需要对应的可选依赖。
