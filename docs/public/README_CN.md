@@ -35,7 +35,7 @@ ScienceFlow 在机器学习、科学建模和数学优化任务上持续开展�
 
 ### 安装
 
-推荐使用 [`pipx`](https://pipx.pypa.io/stable/installation/) 安装。ScienceFlow 的
+推荐使用 [`pipx`](https://pipx.pypa.io/latest/how-to/install-pipx.html) 安装。ScienceFlow 的
 Python 依赖会保持隔离，同时 `scienceflow` 命令可以在任意目录直接使用：
 
 ```bash
