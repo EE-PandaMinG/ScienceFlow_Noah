@@ -33,26 +33,44 @@ ScienceFlow 在机器学习、科学建模和数学优化任务上持续开展�
 **前置要求：** Python 3.11+ 和可用的模型 API。当前 PyPI 包是测试预览版，下面固定
 具体版本，避免测试环境随后续 Preview 改变。
 
-推荐使用 [`uv`](https://docs.astral.sh/uv/) 隔离安装命令行工具：
+### 安装
+
+推荐使用 [`pipx`](https://pipx.pypa.io/stable/installation/) 安装。ScienceFlow 的
+Python 依赖会保持隔离，同时 `scienceflow` 命令可以在任意目录直接使用：
 
 ```bash
-uv tool install scienceflow==0.2.0b5
+pipx install scienceflow==0.2.0b5
 scienceflow --help
 ```
 
-也可以使用 `pipx install scienceflow==0.2.0b5`。Debian 和 Ubuntu 的系统 Python
-可能会拒绝普通的全局 `pip install`，并提示 `externally-managed-environment`（PEP 668）。
-这是系统保护机制，请使用 `uv tool`、`pipx` 或虚拟环境，不要使用
-`--break-system-packages`。
+<details>
+<summary><strong>其他安装方式</strong></summary>
 
-没有 `uv` 或 `pipx` 时，使用 Python 自带的虚拟环境：
+**Conda**
 
 ```bash
-python3 -m venv ~/.venvs/scienceflow
-source ~/.venvs/scienceflow/bin/activate
-python -m pip install --upgrade pip
+conda create -n scienceflow python=3.12 -y
+conda activate scienceflow
 python -m pip install scienceflow==0.2.0b5
 ```
+
+**uv**
+
+```bash
+uv tool install scienceflow==0.2.0b5
+```
+
+**Python 虚拟环境**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install scienceflow==0.2.0b5
+```
+
+</details>
+
+### 配置并启动
 
 首次使用时创建模型注册表，编辑生成的文件，然后启动 TUI：
 
