@@ -39,7 +39,7 @@ ScienceFlow 在机器学习、科学建模和数学优化任务上持续开展�
 Python 依赖会保持隔离，同时 `scienceflow` 命令可以在任意目录直接使用：
 
 ```bash
-pipx install scienceflow==0.2.0b5
+pipx install scienceflow==0.2.0b6
 scienceflow --help
 ```
 
@@ -51,13 +51,13 @@ scienceflow --help
 ```bash
 conda create -n scienceflow python=3.12 -y
 conda activate scienceflow
-python -m pip install scienceflow==0.2.0b5
+python -m pip install scienceflow==0.2.0b6
 ```
 
 **uv**
 
 ```bash
-uv tool install scienceflow==0.2.0b5
+uv tool install scienceflow==0.2.0b6
 ```
 
 **Python 虚拟环境**
@@ -65,7 +65,7 @@ uv tool install scienceflow==0.2.0b5
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install scienceflow==0.2.0b5
+python -m pip install scienceflow==0.2.0b6
 ```
 
 </details>
@@ -121,7 +121,7 @@ uv run scienceflow tui --workspace "$PWD/sf_workspace"
 才使用 `uv sync --extra full --group dev`。发布包的 Full profile 应在虚拟环境内安装：
 
 ```bash
-python -m pip install "scienceflow[full]"==0.2.0b5
+python -m pip install "scienceflow[full]"==0.2.0b6
 ```
 
 ScienceFlow 在进程内使用 InquiryCraft `0.9.0` 作为通用 Agent Runtime，不需要另起服务。
