@@ -108,6 +108,7 @@ class TaskProjection:
             status,
             row.get('finished_at'),
             tuple(row.get('task_roots') or ()),
+            json.dumps(row.get('final_reports') or (), sort_keys=True),
             entry.get('name'),
             entry.get('status'),
             historical,
@@ -204,6 +205,9 @@ class TaskProjection:
         detail = (progress.summary + ('\n\n' + '\n'.join('- ' + line for line in progress.rows[:3]) if progress.rows else '')
                   + (f'\n+{len(progress.rows) - 3} workers · /status {number}' if len(progress.rows) > 3 else '')
                   + ('\n' + '\n'.join(facts.recent) if facts.recent else ''))
+        for root, report in zip(row.get('task_roots') or (), row.get('final_reports') or ()):
+            if report.get('formats', {}).get('report.md') and (Path(root) / 'report.md').is_file():
+                detail += f"\nReport: {Path(root) / 'report.md'}"
         wide_tail = f'[{bar}] {fraction:4.0%}'
         compact_bar = ''.join(
             '■' if i < int(fraction * 6) else '□'

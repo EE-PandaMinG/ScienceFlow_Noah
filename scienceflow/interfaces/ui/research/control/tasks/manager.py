@@ -275,6 +275,8 @@ class MultiResearch:
             words = shlex.split(text)
             if len(words) > 2:
                 raise ValueError(f'Use /{command} [task number].')
+            if command == 'resume' and len(words) != 2:
+                raise ValueError('Use /resume TASK_ID to restart an interrupted task explicitly.')
             if callable(getattr(host, 'echo_user', None)):
                 await host.echo_user(text)
             if command in {'attach', 'runs', 'tasks'}:

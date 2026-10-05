@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install CPU-only control plane from project metadata
+      - name: Install CPU data and control plane from project metadata
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
@@ -19,6 +19,7 @@ jobs:
         run: |
           scienceflow --help
           scienceflow agent tools list
+          python -c "import numpy, pandas, scipy, reportlab"
           python -c "from scienceflow.research.solver.lnr import LnrSolver; from scienceflow.research.solver.lnr.resources.runtime import ResourceRuntime"
 
   compatibility-contracts:
@@ -30,7 +31,7 @@ jobs:
           python-version: "3.12"
       - name: Install lightweight ScienceFlow contract environment
         run: |
-          python -m pip install -e . numpy pytest pytest-asyncio
+          python -m pip install -e . pytest pytest-asyncio
       - name: Verify CLI and provider adapters
         run: >-
           python -m pytest -q

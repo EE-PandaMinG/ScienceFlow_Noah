@@ -20,14 +20,14 @@ def _project_metadata() -> dict:
     return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
-def test_default_install_is_light_cpu_only_control_plane() -> None:
+def test_default_install_includes_cpu_data_without_optional_accelerators() -> None:
     metadata = _project_metadata()
     core = _requirement_names(metadata["project"]["dependencies"])
     forbidden = {
         "catboost",
         "lightgbm",
         "mlebench",
-        "pandas",
+        "datasets",
         "pytest",
         "scikit-learn",
         "tabpfn",
@@ -39,7 +39,9 @@ def test_default_install_is_light_cpu_only_control_plane() -> None:
         "xgboost",
     }
     assert not core & forbidden
-    assert {"httpx", "inquirycraft", "openai"} <= core
+    assert {
+        "httpx", "inquirycraft", "numpy", "openai", "pandas", "reportlab", "scipy"
+    } <= core
     assert metadata["tool"]["uv"]["default-groups"] == []
     assert _requirement_names(metadata["dependency-groups"]["dev"]) == {
         "pytest",
@@ -61,12 +63,15 @@ def test_full_profile_covers_task_profiles() -> None:
     assert task_profiles <= full
     assert "torch" not in _requirement_names(extras["ml"])
     assert "tabpfn" not in _requirement_names(extras["ml"])
+    assert "datasets" in _requirement_names(extras["scientific-design"])
+    for name in ("ml", "gpu", "full"):
+        assert not {"numpy", "pandas", "scipy"} & _requirement_names(extras[name])
 
 
 def test_public_install_surface_is_light_and_full() -> None:
     public_docs = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "pip install scienceflow" in public_docs
-    assert 'pip install "scienceflow[full]"' in public_docs
+    assert 'pip install "scienceflow[full]==0.2.0b7"' in public_docs
     for internal_extra in ("ml", "gpu", "mlebench"):
         assert f'scienceflow[{internal_extra}]' not in public_docs
 

@@ -10,6 +10,7 @@ import pytest
 from scienceflow.interfaces.ui.long_research import LongResearchInteraction
 from scienceflow.interfaces.ui.research.control.tasks import manager
 from scienceflow.interfaces.ui.research.control.tasks.metrics import ResourceFacts
+from scienceflow.interfaces.ui.research.control.tasks.projection import TaskProjection
 from scienceflow.interfaces.ui.research.control.tasks.records import TaskIndex
 from scienceflow.interfaces.ui.research.research_events import ResearchEvents
 from scienceflow.interfaces.ui.research.resources import (
@@ -49,6 +50,54 @@ class Host:
     def set_host_tasks(self, title, items):
         self.title = title
         self.items = items
+
+
+@pytest.mark.asyncio
+async def test_chat_remount_refreshes_tasks_without_resuming_research(tmp_path, monkeypatch):
+    tasks = manager.MultiResearch(SimpleNamespace(workspace=tmp_path))
+    host = Host()
+    monkeypatch.setattr(tasks, 'collect', lambda: (
+        [], {}, (dict(key='1', state='running'), dict(key='2', state='interrupted')),
+    ))
+    def forbidden_resume(*args, **kwargs):
+        raise AssertionError('chat remount must not restart research')
+
+    monkeypatch.setattr(manager, 'resume_run', forbidden_resume)
+    try:
+        await tasks.on_mount(host)
+        assert [item['state'] for item in host.items] == ['running', 'interrupted']
+    finally:
+        await tasks.close()
+
+
+@pytest.mark.asyncio
+async def test_research_resume_requires_an_explicit_task_id(tmp_path, monkeypatch):
+    tasks = manager.MultiResearch(SimpleNamespace(workspace=tmp_path))
+    host = Host()
+
+    def forbidden_resume(*args, **kwargs):
+        raise AssertionError('research restarted without an explicit task ID')
+
+    monkeypatch.setattr(manager, 'resume_run', forbidden_resume)
+    assert await tasks.command('/resume', host)
+    assert 'Use /resume TASK_ID' in host.notices[-1]
+
+
+def test_completed_task_detail_reveals_saved_report_after_it_arrives(tmp_path):
+    task_root = tmp_path / 'task'
+    task_root.mkdir()
+    entry = dict(number=1, name='circle', status='completed', workspace=str(task_root))
+    row = dict(run_id='run-1', status='completed', alive=False, attempt=1,
+               started_at=1, finished_at=2, draft={}, task_roots=[str(task_root)])
+    projection = TaskProjection()
+    first = projection.item(entry, row)
+    assert 'Report:' not in first['detail']
+
+    report = task_root / 'report.md'
+    report.write_text('# Result\n')
+    row['final_reports'] = [{'status': 'ready', 'formats': {'report.md': True}}]
+    refreshed = projection.item(entry, row)
+    assert f'Report: {report}' in refreshed['detail']
 
 
 @pytest.mark.asyncio

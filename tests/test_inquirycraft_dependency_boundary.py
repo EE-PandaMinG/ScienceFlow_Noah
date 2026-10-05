@@ -28,9 +28,9 @@ def test_scienceflow_exposes_only_mcp_as_optional_inquirycraft_integration() -> 
         for name, dependencies in project["optional-dependencies"].items()
         if name.startswith("inquirycraft-")
     }
-    assert "inquirycraft[openai,tui]==0.9.1" in project["dependencies"]
+    assert "inquirycraft[openai,tui]==0.9.2" in project["dependencies"]
     assert inquirycraft_extras == {
-        "inquirycraft-mcp": ["inquirycraft[mcp]==0.9.1"]
+        "inquirycraft-mcp": ["inquirycraft[mcp]==0.9.2"]
     }
     assert "inquirycraft" not in config["tool"]["uv"]["sources"]
 
@@ -66,7 +66,7 @@ def test_tui_rejects_old_runtime_without_manual_compaction(monkeypatch) -> None:
     monkeypatch.setattr(AgentRuntime, 'compact_context', None)
     result = CliRunner().invoke(build_tui_command(), [])
     assert result.exit_code != 0
-    assert 'InquiryCraft 0.9.1' in result.output
+    assert 'InquiryCraft build with workspace session APIs' in result.output
 
 
 def test_light_wheel_keeps_registered_task_packages_discoverable() -> None:

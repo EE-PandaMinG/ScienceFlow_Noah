@@ -18,7 +18,7 @@ TUI and Web monitor.
 </p>
 
 > [!IMPORTANT]
-> **Testing preview · 0.2.0b7.** Interfaces and workspace metadata may change before the stable release.
+> **Source preview · 0.2.0b8 (unreleased).** Installation examples below remain pinned to the previously tagged 0.2.0b7; the new session selector requires the matching InquiryCraft 0.9.2 build.
 
 ## Quick start
 
@@ -124,11 +124,21 @@ and retains the best valid artifact under the workspace. Follow it with
   </tbody>
 </table>
 
-Resume the latest chat session with:
+Choose a saved chat session in the same workspace with:
 
 ```bash
 scienceflow tui --workspace "$PWD/sf_workspace" --resume
 ```
+
+The list always asks you to confirm a session. In a non-interactive terminal, use
+`--resume --session ID`. Chat resume restores conversation history; it does not
+restart research. The task board reattaches to living research processes and shows
+saved reports for completed tasks. An interrupted task remains paused until you
+explicitly enter `/resume N` in the TUI. ScienceFlow chat sessions, including
+existing history, are listed and saved under `<workspace>/.scienceflow/sessions/`.
+`scienceflow agent` shares that same session list and directory. Both use InquiryCraft's
+session implementation; only the standalone `inquirycraft` CLI uses its separate
+`.inquirycraft/sessions/` namespace.
 
 ## How it works
 
@@ -181,12 +191,15 @@ Model settings stay local in <code>~/.config/scienceflow/models.json</code> (mod
 </p>
 
 <p align="justify">
-The base package provides the control plane and TUI. Install task-specific ML/GPU
-dependencies only when needed:
+The base package includes the TUI, CPU data tools (NumPy, pandas, SciPy), built-in
+optimization evaluators, and PDF reports (ReportLab). GPU training, pretrained models,
+and benchmark integrations remain optional. Install the scientific-design extra for
+Sci-Modeling-Bench and Hugging Face datasets, or the full extra for ML/GPU tasks:
 </p>
 
 ```bash
-python -m pip install "scienceflow[full]"==0.2.0b7
+python -m pip install "scienceflow[scientific-design]==0.2.0b7"
+python -m pip install "scienceflow[full]==0.2.0b7"
 ```
 
 <p align="justify">
@@ -206,8 +219,9 @@ uv run scienceflow tui --workspace "$PWD/sf_workspace"
 ```
 
 <p align="justify">
-Use <code>uv sync --extra full --group dev</code> only when tests require the full ML/GPU
-environment.
+Use <code>uv sync --extra scientific-design --group dev</code> for
+Sci-Modeling-Bench tests, or <code>uv sync --extra full --group dev</code> for the
+ML/GPU test environment. Extras are not needed for basic CPU data tools and reports.
 </p>
 
 ## Research

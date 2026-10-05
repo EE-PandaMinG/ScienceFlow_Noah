@@ -1,82 +1,112 @@
-from pathlib import Path
+"""ScienceFlow TUI shares InquiryCraft's catalog, not its physical namespace."""
 
-import click
+import json
+
 from click.testing import CliRunner
+from inquirycraft.cli import create_cli
+from inquirycraft.cli.sessions import SessionCatalog
+from inquirycraft.memory import JsonlConversationStore, Message
 
-from scienceflow.interfaces.cli.tui_sessions import configure_sessions
+from scienceflow.interfaces.cli import main
+from scienceflow.interfaces.cli.commands.run.tui import build_tui_command
+from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory
 
 
-def test_sessions_isolate_workspaces_and_preserve_old_files(tmp_path):
-    @click.command()
-    @click.option('--workspace', type=click.Path(path_type=Path))
-    @click.option('--session-log', type=click.Path(path_type=Path))
-    @click.option('--operation-log', type=click.Path(path_type=Path))
-    def command(workspace, session_log, operation_log):
-        assert operation_log.parent == session_log.parent
-        session_log.parent.mkdir(parents=True, exist_ok=True)
-        if not session_log.exists():
-            session_log.write_text('history')
-        click.echo(session_log)
+def test_scienceflow_chat_entries_share_sessions_and_standalone_iq_is_separate(tmp_path, monkeypatch):
+    import inquirycraft.tui
 
-    configure_sessions(command, lambda: tmp_path / 'state')
+    workspace = tmp_path / "workspace"
+    old = workspace / ".scienceflow" / "sessions" / "old" / "session.jsonl"
+    old.parent.mkdir(parents=True)
+    JsonlConversationStore(old).append(Message(role="user", content="earlier"))
+    models = tmp_path / "models.json"
+    models.write_text(json.dumps({
+        "models": {"fake": {"model": "fake", "endpoints": [{"url": "", "key": "test"}]}},
+        "defaults": {"code_models": ["fake"]},
+    }))
+    chosen = []
+
+    class FakeRuntime:
+        def __init__(self, session_log):
+            self.session_log = session_log
+
+        async def run(self, task):
+            JsonlConversationStore(self.session_log).append(Message(role="user", content=task))
+            return task
+
+        async def aclose(self):
+            pass
+
+    class FakeTui:
+        def __init__(self, runtime, **kwargs):
+            self.runtime = runtime
+
+        async def run_async(self):
+            if self.runtime.session_log == old:
+                await self.runtime.run("continued")
+
+        async def shutdown_runtime(self):
+            pass
+
+    def create_runtime(self, options, **kwargs):
+        chosen.append(options.session_log)
+        return FakeRuntime(options.session_log)
+
+    monkeypatch.setattr(PoolRuntimeFactory, "create_runtime", create_runtime)
+    monkeypatch.setattr(inquirycraft.tui, "InquiryCraftTui", FakeTui)
     runner = CliRunner()
-    first = runner.invoke(command, ['--workspace', str(tmp_path / 'a')])
-    assert first.exit_code == 0, first.output
-    second = runner.invoke(command, ['--workspace', str(tmp_path / 'b')])
-    assert second.exit_code == 0, second.output
-    assert Path(first.output.strip()).parent.parent != Path(second.output.strip()).parent.parent
-    resumed = runner.invoke(command, ['--workspace', str(tmp_path / 'a'), '--resume'])
-    assert resumed.output == first.output
-    missing = runner.invoke(command, ['--workspace', str(tmp_path / 'c'), '--resume'])
-    assert missing.exit_code != 0
-    previous = tmp_path / 'legacy.jsonl'
-    previous.write_text('original history')
-    rejected = runner.invoke(command, ['--session-log', str(previous)])
-    assert rejected.exit_code != 0
-    assert previous.read_text() == 'original history'
-    restored = runner.invoke(command, ['--session-log', str(previous), '--resume'])
-    assert restored.exit_code == 0, restored.output
-    assert previous.read_text() == 'original history'
+    args = ["--workspace", str(workspace), "--model-config", str(models)]
+    tui = runner.invoke(build_tui_command(), [*args])
+    agent = runner.invoke(main, ["agent", "run", *args, "hello"])
+    iq_app = create_cli(runtime_factory=PoolRuntimeFactory(), model_config_default=models)
+    standalone = runner.invoke(
+        iq_app, ["run", *args, "independent"],
+    )
+
+    assert tui.exit_code == 0, tui.output
+    assert agent.exit_code == 0, agent.output
+    assert standalone.exit_code == 0, standalone.output
+    assert len(chosen) == 3
+    assert chosen[0].parent.parent == workspace / ".scienceflow" / "sessions"
+    assert chosen[1].parent.parent == workspace / ".scienceflow" / "sessions"
+    assert chosen[2].parent.parent == workspace / ".inquirycraft" / "sessions"
+    listed = runner.invoke(build_tui_command(), [*args, "--resume"])
+    assert listed.exit_code != 0 and "old" in listed.output
+    agent_list = runner.invoke(main, ["agent", "sessions", "list", "--workspace", str(workspace)])
+    assert agent_list.exit_code == 0 and "old" in agent_list.output
+    assert chosen[0].parent.name in agent_list.output
+    iq_list = runner.invoke(iq_app, ["sessions", "list", "--workspace", str(workspace)])
+    assert iq_list.exit_code == 0 and chosen[2].parent.name in iq_list.output
+    assert "old" not in iq_list.output
+    resumed = runner.invoke(build_tui_command(), [*args, "--resume", "--session", "old"])
+    assert resumed.exit_code == 0, resumed.output
+    assert chosen[-1] == old
+    agent_resumed = runner.invoke(
+        main, ["agent", "run", *args, "--resume", "--session", "old", "agent continuation"]
+    )
+    assert agent_resumed.exit_code == 0, agent_resumed.output
+    assert chosen[-1] == old
+    assert [message.content for message in JsonlConversationStore(old).load().messages] == [
+        "earlier", "continued", "agent continuation"
+    ]
+    assert {item.id for item in SessionCatalog(workspace, ".scienceflow").list()} == {
+        "old", chosen[0].parent.name, chosen[1].parent.name
+    }
+    assert {item.id for item in SessionCatalog(workspace, ".inquirycraft").list()} == {
+        chosen[2].parent.name
+    }
 
 
-def test_launch_directory_wins_over_environment_and_legacy_history_is_recoverable(monkeypatch, tmp_path):
-    from hashlib import sha256
-
-    from scienceflow.interfaces.cli.user_config import add_environment_options
-
-    @click.command()
-    @click.option('--workspace', type=click.Path(path_type=Path))
-    @click.option('--session-log', type=click.Path(path_type=Path))
-    def command(workspace, session_log):
-        assert session_log.is_relative_to(workspace) or session_log.is_relative_to(tmp_path / 'state')
-        session_log.touch()
-        click.echo(session_log)
-
-    configure_sessions(command, lambda: tmp_path / 'state')
-    add_environment_options(command, ('TUI',))
-    monkeypatch.setenv('SCIENCEFLOW_WORKSPACE', str(tmp_path / 'wrong'))
-    monkeypatch.setenv('SCIENCEFLOW_TUI_WORKSPACE', str(tmp_path / 'wrong'))
-    monkeypatch.setenv('SCIENCEFLOW_TUI_SESSION_LOG', str(tmp_path / 'wrong.jsonl'))
-    launch = tmp_path / 'launch'
-    launch.mkdir()
-    monkeypatch.chdir(launch)
-    runner = CliRunner()
-    workspace_id = sha256(str(launch).encode()).hexdigest()[:20]
-    legacy = tmp_path / 'state/workspaces' / workspace_id / 'old/session.jsonl'
-    legacy.parent.mkdir(parents=True)
-    legacy.write_text('')
-    restored = runner.invoke(command, ['--resume'])
-    assert restored.exit_code == 0, restored.output
-    assert Path(restored.output.strip()) == legacy
-    fresh = runner.invoke(command)
-    assert fresh.exit_code == 0, fresh.output
-    assert Path(fresh.output.strip()).parent.parent == launch / '.scienceflow/sessions'
-    local = runner.invoke(command, ['--resume'])
-    assert local.output == fresh.output
-    explicit = runner.invoke(command, ['--workspace', str(tmp_path / 'chosen')])
-    assert explicit.exit_code == 0, explicit.output
-    assert Path(explicit.output.strip()).parent.parent == tmp_path / 'chosen/.scienceflow/sessions'
-    monkeypatch.chdir(tmp_path)
-    missing = runner.invoke(command, ['--resume'])
-    assert missing.exit_code != 0
-    assert 'No saved session' in missing.output
+def test_public_tui_has_resume_and_session_but_no_session_log():
+    result = CliRunner().invoke(main, ["tui", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "--resume" in result.output and "--session" in result.output
+    assert "--session-log" not in result.output
+    agent = CliRunner().invoke(main, ["agent", "--help"])
+    assert agent.exit_code == 0, agent.output
+    assert "run" in agent.output and "repl" in agent.output
+    assert "tui" not in agent.output.split()
+    agent_run = CliRunner().invoke(main, ["agent", "run", "--help"])
+    assert agent_run.exit_code == 0, agent_run.output
+    assert "--resume" in agent_run.output and "--session" in agent_run.output
+    assert "--session-log" not in agent_run.output

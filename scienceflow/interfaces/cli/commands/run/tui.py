@@ -13,7 +13,6 @@ from inquirycraft.runtime import AgentRuntime
 
 from scienceflow.foundation.config.llm.model_registry import load_model_registry
 from scienceflow.foundation.config.runtime.llm_lists import values
-from scienceflow.interfaces.cli.user_config import set_tui_state_defaults
 from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory, plural_cli_options
 from scienceflow.interfaces.ui.logo import COMPACT_LOGO_PIXELS, LOGO_PIXELS
 from scienceflow.interfaces.ui.long_research import LongResearchInteraction
@@ -57,6 +56,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
         "model_default_key",
         "tui_branding",
         "tui_interceptor_factory",
+        "session_namespace",
     }
     if (not required_host_parameters.issubset(signature(create_cli).parameters)
             or not callable(getattr(AgentRuntime, 'compact_context', None))):
@@ -65,8 +65,8 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
         def unavailable_tui():
             """Start the full-screen interface (requires InquiryCraft TUI host APIs)."""
             raise click.ClickException(
-                "ScienceFlow TUI requires the InquiryCraft 0.9.1 host and model-registry APIs. "
-                "Install that release before starting TUI."
+                "ScienceFlow TUI requires an InquiryCraft build with workspace session APIs. "
+                "Install the matching InquiryCraft release before starting TUI."
             )
 
         return unavailable_tui
@@ -121,6 +121,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
         tui_interceptor_factory=lambda workspace: LongResearchInteraction(
             Path(workspace), managed=True, multi_task=True, initial_command=initial_command
         ),
+        session_namespace=".scienceflow",
     )
     command = host.commands.get("tui")
     if command is None:  # pragma: no cover - defensive contract guard
@@ -135,7 +136,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
                 "and return the requested JSON contract. Do not start research workers "
                 "during preparation."
             )
-    return set_tui_state_defaults(_pin_tui_chat_model(plural_cli_options(command)))
+    return _pin_tui_chat_model(plural_cli_options(command))
 
 
 tui = build_tui_command()

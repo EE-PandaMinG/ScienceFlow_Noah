@@ -75,9 +75,3 @@ def user_state_dir() -> Path:
         return Path(explicit).expanduser()
     base = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state")
     return base.expanduser() / "scienceflow" / "tui"
-
-
-def set_tui_state_defaults(command: click.Command) -> click.Command:
-    from scienceflow.interfaces.cli.tui_sessions import configure_sessions
-
-    return configure_sessions(command, user_state_dir)
