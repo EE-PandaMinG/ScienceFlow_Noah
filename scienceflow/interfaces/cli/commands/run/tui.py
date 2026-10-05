@@ -116,6 +116,8 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
             version=package_version,
             welcome_text=(
                 "Long Research · parallel workers explore, evaluate, and preserve the best result.\n"
+                "Chat · first code model with endpoint failover · shell denied "
+                "(/permission; 120s default)\n"
                 "Chat history: scienceflow tui --resume · research tasks: /resume TASK_ID"
             ),
             welcome_emphasis=("Long Research", "parallel workers", "best result"),

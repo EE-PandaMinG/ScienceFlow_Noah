@@ -46,6 +46,44 @@ def test_scienceflow_agent_group_excludes_optional_inquirycraft_tui() -> None:
     assert {"run", "repl", "tools", "events"}.issubset(result.output.split())
 
 
+def test_scienceflow_embedded_agent_repl_uses_scienceflow_prompt(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory
+
+    class FakeRuntime:
+        async def aclose(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        PoolRuntimeFactory,
+        "create_runtime",
+        lambda self, options, **kwargs: FakeRuntime(),
+    )
+    config = tmp_path / "models.json"
+    config.write_text(
+        '{"models":{"fake":{"model":"fake","endpoints":['
+        '{"url":"","key":"test"}]}},"defaults":{"code_models":["fake"]}}'
+    )
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "agent",
+            "repl",
+            "--model-config",
+            str(config),
+            "--workspace",
+            str(tmp_path),
+        ],
+        input="quit\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "scienceflow> " in result.output
+    assert "inquirycraft> " not in result.output
+
+
 def test_scienceflow_root_tui_uses_existing_inquirycraft_options() -> None:
     result = CliRunner().invoke(main, ["tui", "--help"])
 
@@ -72,6 +110,7 @@ def test_scienceflow_root_tui_requires_complete_090_host_contract() -> None:
         "model_default_key",
         "tui_branding",
         "tui_interceptor_factory",
+        "repl_prompt",
     }
     assert required.issubset(signature(create_cli).parameters)
 
@@ -172,6 +211,7 @@ def test_scienceflow_root_tui_binds_long_research_to_selected_workspace(
     assert captured["branding"].fold_system_notices
     assert captured["branding"].welcome_text.splitlines() == [
         "Long Research · parallel workers explore, evaluate, and preserve the best result.",
+        "Chat · first code model with endpoint failover · shell denied (/permission; 120s default)",
         "Chat history: scienceflow tui --resume · research tasks: /resume TASK_ID",
     ]
     assert captured["branding"].welcome_emphasis == (

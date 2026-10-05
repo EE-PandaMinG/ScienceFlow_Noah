@@ -42,6 +42,7 @@ def test_contract_ci_installs_project_metadata_without_dependency_override() -> 
     ).read_text(encoding="utf-8")
 
     assert "python -m pip install -e ." in workflow
+    assert "uv lock --check" in workflow
     assert "requirements.txt" not in workflow
     assert "inquirycraft[" not in workflow
 

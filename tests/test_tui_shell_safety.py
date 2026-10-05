@@ -195,6 +195,19 @@ class _Delegate:
         pass
 
 
+class _ReorderedDelegate(_Delegate):
+    tui_common_commands = ("/help", "/models", "/help", "/quit")
+
+    @property
+    def tui_commands(self):
+        from inquirycraft.tui import TuiCommandSpec
+
+        return (
+            TuiCommandSpec("/help", "Help"),
+            TuiCommandSpec("/permission", "Outdated permission command"),
+        )
+
+
 @pytest.mark.asyncio
 async def test_permission_command_shows_tools_and_toggles_shell():
     factory = TuiPoolRuntimeFactory()
@@ -312,3 +325,12 @@ def test_permission_command_is_in_tui_completion():
         ("/permission shell allow", "Change shell permission"),
         ("/permission shell deny", "Change shell permission"),
     ]
+
+
+def test_permission_command_merge_deduplicates_reordered_upstream_commands():
+    wrapper = TuiPermissionInteraction(_ReorderedDelegate(), TuiToolPermissions())
+
+    assert wrapper.tui_common_commands == ("/models", "/permission", "/help", "/quit")
+    assert [spec.name for spec in wrapper.tui_commands] == ["/help", "/permission"]
+    permission = wrapper.tui_commands[-1]
+    assert permission.description == "Show or change chat tool permissions"

@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 
+from inquirycraft.tui import DelegatingTuiInterceptor
+
 
 @dataclass
 class TuiToolPermissions:
@@ -45,34 +47,29 @@ class TuiToolPermissions:
         return sum(not task.done() for task in self._active_shell_tasks)
 
 
-class TuiPermissionInteraction:
+class TuiPermissionInteraction(DelegatingTuiInterceptor):
     """Handle /permission before forwarding input to the research adapter."""
 
     def __init__(self, delegate, permissions: TuiToolPermissions) -> None:
-        self._delegate = delegate
+        super().__init__(delegate)
         self._permissions = permissions
-
-    def __getattr__(self, name):
-        """Expose the complete wrapped interceptor interface unchanged."""
-
-        return getattr(self._delegate, name)
 
     @property
     def tui_common_commands(self):
-        return ("/models", "/permission", *self._delegate.tui_common_commands[1:])
+        upstream = getattr(self._delegate, "tui_common_commands", ())
+        return tuple(dict.fromkeys(("/models", "/permission", *upstream)))
 
     @property
     def tui_commands(self):
         from inquirycraft.tui import TuiCommandSpec
 
-        return (
-            *self._delegate.tui_commands,
-            TuiCommandSpec(
-                "/permission",
-                "Show or change chat tool permissions",
-                ("shell", "allow|deny"),
-            ),
+        permission = TuiCommandSpec(
+            "/permission",
+            "Show or change chat tool permissions",
+            ("shell", "allow|deny"),
         )
+        upstream = getattr(self._delegate, "tui_commands", ())
+        return (*tuple(spec for spec in upstream if spec.name != permission.name), permission)
 
     def tui_completions(self, text):
         prefix = str(text or "")
@@ -112,15 +109,3 @@ class TuiPermissionInteraction:
                 await host.notice("Usage: /permission [shell allow|deny]")
             return True
         return await self._delegate.try_handle(text, host)
-
-    def is_host_task_prompt(self, content):
-        hook = getattr(self._delegate, "is_host_task_prompt", None)
-        return hook(content) if hook is not None else False
-
-    async def on_mount(self, host):
-        hook = getattr(self._delegate, "on_mount", None)
-        if hook is not None:
-            await hook(host)
-
-    async def aclose(self):
-        await self._delegate.aclose()

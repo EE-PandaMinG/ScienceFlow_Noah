@@ -432,6 +432,8 @@ _inquirycraft_cli_options: dict[str, Any] = {
 _inquirycraft_parameters = _call_signature(_create_inquirycraft_cli).parameters
 if "include_tui" in _inquirycraft_parameters:
     _inquirycraft_cli_options["include_tui"] = False
+if "repl_prompt" in _inquirycraft_parameters:
+    _inquirycraft_cli_options["repl_prompt"] = "scienceflow> "
 if "session_namespace" in _inquirycraft_parameters:
     from inquirycraft.cli.sessions import register_session_commands as _register_session_commands
 
