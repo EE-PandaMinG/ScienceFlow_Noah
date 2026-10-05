@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
@@ -58,16 +59,18 @@ class PoolRuntimeFactory:
             models,
             len(values(api_key)),
         )
-        return monitor.bind(AgentRuntime(
-            llm=client,
-            compaction_policy=monitor.policy(),
-            provider_observer=monitor,
-            options=replace(options, model=models[0]),
-            tools=self._tools(),
-            event_sink=event_sink,
-            conversation=store.load() if store else Conversation(),
-            conversation_store=store,
-        ))
+        return monitor.bind(
+            AgentRuntime(
+                llm=client,
+                compaction_policy=monitor.policy(),
+                provider_observer=monitor,
+                options=replace(options, model=models[0]),
+                tools=self._tools(),
+                event_sink=event_sink,
+                conversation=store.load() if store else Conversation(),
+                conversation_store=store,
+            )
+        )
 
 
 class TuiShellTool(ShellTool):
@@ -93,8 +96,17 @@ class TuiShellTool(ShellTool):
 
     async def execute(self, arguments, context):
         if not self.permissions.allow_shell:
-            return ToolResult(error="Raw shell is denied. Use /permission shell allow to enable it.")
-        return await super().execute({"timeout": 120, **arguments}, context)
+            return ToolResult(
+                error="Raw shell is denied. Use /permission shell allow to enable it."
+            )
+        task = asyncio.current_task()
+        if task is None:  # pragma: no cover - execute always runs in an event loop
+            return await super().execute({"timeout": 120, **arguments}, context)
+        self.permissions.track_shell(task)
+        try:
+            return await super().execute({"timeout": 120, **arguments}, context)
+        finally:
+            self.permissions.untrack_shell(task)
 
 
 class TuiToolCollection(ToolCollection):
@@ -108,12 +120,16 @@ class TuiToolCollection(ToolCollection):
         schemas = super().schemas()
         if self.permissions.allow_shell:
             return schemas
-        return tuple(schema for schema in schemas if schema["function"]["name"] != "shell")
+        return tuple(
+            schema for schema in schemas if schema["function"]["name"] != "shell"
+        )
 
 
 class TuiPoolRuntimeFactory(PoolRuntimeFactory):
     def __init__(self):
-        self._permissions = ContextVar(f"scienceflow_tui_permissions_{id(self)}", default=None)
+        self._permissions = ContextVar(
+            f"scienceflow_tui_permissions_{id(self)}", default=None
+        )
         self._default_permissions = TuiToolPermissions()
 
     @property
@@ -143,7 +159,9 @@ def plural_cli_options(command):
     for param in command.params:
         if param.name in aliases:
             param.opts = list(aliases[param.name])
-            param.help = "Comma-separated aliases from models.json; defaults to code_models."
+            param.help = (
+                "Comma-separated aliases from models.json; defaults to code_models."
+            )
     if isinstance(command, click.Group):
         for child in command.commands.values():
             plural_cli_options(child)

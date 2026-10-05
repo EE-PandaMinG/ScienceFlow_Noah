@@ -13,8 +13,15 @@ from inquirycraft.tools.base import ToolContext
 
 from scienceflow.interfaces.cli import main
 from scienceflow.interfaces.cli.commands.run.tui import build_tui_command
-from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory, TuiPoolRuntimeFactory, TuiShellTool
-from scienceflow.interfaces.ui.permission import TuiPermissionInteraction, TuiToolPermissions
+from scienceflow.interfaces.ui.llm_cli import (
+    PoolRuntimeFactory,
+    TuiPoolRuntimeFactory,
+    TuiShellTool,
+)
+from scienceflow.interfaces.ui.permission import (
+    TuiPermissionInteraction,
+    TuiToolPermissions,
+)
 
 
 def _schema_names(tools):
@@ -32,17 +39,29 @@ def test_tui_tool_schemas_require_explicit_shell_opt_in():
         assert isinstance(factory._tools().get("shell"), TuiShellTool)
     assert _schema_names(factory._tools()) == ["read_text", "write_text"]
     assert _schema_names(default_tools()) == ["read_text", "write_text", "shell"]
-    assert _schema_names(PoolRuntimeFactory()._tools()) == ["read_text", "write_text", "shell"]
+    assert _schema_names(PoolRuntimeFactory()._tools()) == [
+        "read_text",
+        "write_text",
+        "shell",
+    ]
 
 
 @pytest.mark.asyncio
 async def test_tui_text_tools_remain_workspace_contained(tmp_path):
     tools = TuiPoolRuntimeFactory()._tools()
-    context = ToolContext("session", "run", "agent", tmp_path, NullEventSink(), CancellationToken())
-    await tools.get("write_text").execute({"path": "inside.txt", "content": "safe"}, context)
-    assert (await tools.get("read_text").execute({"path": "inside.txt"}, context)).output == "safe"
+    context = ToolContext(
+        "session", "run", "agent", tmp_path, NullEventSink(), CancellationToken()
+    )
+    await tools.get("write_text").execute(
+        {"path": "inside.txt", "content": "safe"}, context
+    )
+    assert (
+        await tools.get("read_text").execute({"path": "inside.txt"}, context)
+    ).output == "safe"
     with pytest.raises(ValueError, match="outside|workspace"):
-        await tools.get("write_text").execute({"path": "../outside.txt", "content": "no"}, context)
+        await tools.get("write_text").execute(
+            {"path": "../outside.txt", "content": "no"}, context
+        )
 
 
 @pytest.mark.asyncio
@@ -56,7 +75,8 @@ async def test_shell_opt_in_is_isolated_across_concurrent_tui_contexts():
             return _schema_names(factory._tools())
 
     assert await asyncio.gather(names(True), names(False)) == [
-        ["read_text", "write_text", "shell"], ["read_text", "write_text"]
+        ["read_text", "write_text", "shell"],
+        ["read_text", "write_text"],
     ]
 
 
@@ -88,10 +108,16 @@ def test_shell_permission_is_only_available_inside_tui_chat(tmp_path, monkeypatc
     monkeypatch.setenv("SCIENCEFLOW_ALLOW_SHELL", "1")
     monkeypatch.setenv("SCIENCEFLOW_TUI_ALLOW_SHELL", "1")
     config = tmp_path / "models.json"
-    config.write_text(json.dumps({
-        "models": {"fake": {"model": "fake", "endpoints": [{"url": "", "key": "test"}]}},
-        "defaults": {"code_models": ["fake"]},
-    }))
+    config.write_text(
+        json.dumps(
+            {
+                "models": {
+                    "fake": {"model": "fake", "endpoints": [{"url": "", "key": "test"}]}
+                },
+                "defaults": {"code_models": ["fake"]},
+            }
+        )
+    )
     args = ["--workspace", str(tmp_path), "--model-config", str(config)]
     result = CliRunner().invoke(build_tui_command(), args)
     assert result.exit_code == 0, result.output
@@ -99,7 +125,9 @@ def test_shell_permission_is_only_available_inside_tui_chat(tmp_path, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_tui_shell_defaults_to_120_seconds_without_changing_global_tool(monkeypatch):
+async def test_tui_shell_defaults_to_120_seconds_without_changing_global_tool(
+    monkeypatch,
+):
     from inquirycraft.tools import shell_execution
     from inquirycraft.tools.base import ToolResult
 
@@ -136,7 +164,9 @@ def test_allow_shell_is_not_an_agent_or_inquirycraft_option():
         assert "--allow-shell" not in runner.invoke(main, command).output
     assert "--allow-shell" not in runner.invoke(create_cli(), ["tui", "--help"]).output
     assert runner.invoke(main, ["agent", "tools", "list"]).output.splitlines() == [
-        "read_text", "write_text", "shell"
+        "read_text",
+        "write_text",
+        "shell",
     ]
 
 
@@ -151,6 +181,12 @@ class _PermissionHost:
 class _Delegate:
     tui_common_commands = ("/models", "/help")
     tui_commands = ()
+
+    def __init__(self):
+        self.model_configuration = None
+
+    def configure_model_registry(self, path, aliases):
+        self.model_configuration = (path, aliases)
 
     async def try_handle(self, text, host):
         return False
@@ -184,23 +220,82 @@ async def test_permission_command_shows_tools_and_toggles_shell():
         assert "denied" in host.messages[-1]
 
 
+def test_permission_wrapper_transparently_delegates_interceptor_interface(tmp_path):
+    delegate = _Delegate()
+    wrapper = TuiPermissionInteraction(delegate, TuiToolPermissions())
+
+    wrapper.configure_model_registry(tmp_path / "models.json", ("fast",))
+
+    assert delegate.model_configuration == (tmp_path / "models.json", ("fast",))
+    assert wrapper.model_configuration == delegate.model_configuration
+
+
 @pytest.mark.asyncio
-async def test_denied_shell_is_not_executed_and_schema_tracks_permission(monkeypatch, tmp_path):
+async def test_shell_deny_stops_active_tui_shell_work(tmp_path):
+    permissions = TuiToolPermissions(allow_shell=True)
+    interaction = TuiPermissionInteraction(_Delegate(), permissions)
+    host = _PermissionHost()
+    context = ToolContext(
+        "session",
+        "run",
+        "agent",
+        tmp_path,
+        NullEventSink(),
+        CancellationToken(),
+    )
+    execution = asyncio.create_task(
+        TuiShellTool(permissions).execute(
+            {
+                "command": (
+                    "printf started > shell-started; "
+                    "sleep 30; "
+                    "printf finished > shell-finished"
+                )
+            },
+            context,
+        )
+    )
+    for _ in range(100):
+        if (tmp_path / "shell-started").is_file():
+            break
+        await asyncio.sleep(0.02)
+    assert (tmp_path / "shell-started").is_file()
+    assert permissions.active_shell_count == 1
+
+    assert await interaction.try_handle("/permission shell deny", host)
+    result = await asyncio.wait_for(execution, timeout=5)
+
+    assert permissions.allow_shell is False
+    assert permissions.active_shell_count == 0
+    assert result.error == "command cancelled"
+    assert result.metadata["shell_execution"]["status"] == "cancelled"
+    assert not (tmp_path / "shell-finished").exists()
+
+
+@pytest.mark.asyncio
+async def test_denied_shell_is_not_executed_and_schema_tracks_permission(
+    monkeypatch, tmp_path
+):
     from inquirycraft.tools import shell_execution
     from inquirycraft.tools.base import ToolResult
 
     called = []
+
     async def run_shell(arguments, context):
         called.append(arguments)
         return ToolResult(output="ok")
+
     monkeypatch.setattr(shell_execution, "run_shell", run_shell)
     factory = TuiPoolRuntimeFactory()
     with factory.permission_session():
         tools = factory._tools()
         assert _schema_names(tools) == ["read_text", "write_text"]
         result = await tools.execute(
-            name="shell", tool_input={"command": "true"},
-            context=ToolContext("s", "r", "a", tmp_path, NullEventSink(), CancellationToken()),
+            name="shell",
+            tool_input={"command": "true"},
+            context=ToolContext(
+                "s", "r", "a", tmp_path, NullEventSink(), CancellationToken()
+            ),
         )
         assert "denied" in result.error
         assert not called
