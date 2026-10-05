@@ -433,7 +433,10 @@ _inquirycraft_parameters = _call_signature(_create_inquirycraft_cli).parameters
 if "include_tui" in _inquirycraft_parameters:
     _inquirycraft_cli_options["include_tui"] = False
 if "session_namespace" in _inquirycraft_parameters:
+    from inquirycraft.cli.sessions import register_session_commands as _register_session_commands
+
     _inquirycraft_cli_options["session_namespace"] = ".scienceflow"
+    _register_session_commands(main, ".scienceflow", None)
     main.add_command(
         plural_cli_options(_create_inquirycraft_cli(**_inquirycraft_cli_options)),
         name="agent",

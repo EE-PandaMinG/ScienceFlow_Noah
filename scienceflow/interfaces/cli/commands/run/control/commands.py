@@ -61,7 +61,7 @@ def stop(run_id):
 @click.argument('run_id', required=False)
 @click.option('--tui', 'with_tui', is_flag=True, help='Attach a TUI after resuming (or attach if already running).')
 def resume(run_id, with_tui):
-    """Resume by run ID or task directory; omitted target uses the current directory."""
+    """Resume research RUN_ID or task directory; default: current directory. Chat: tui --resume."""
     try:
         row = select_run(run_id, "resume")
         run_id = row['run_id']

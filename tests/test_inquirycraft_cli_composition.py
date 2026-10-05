@@ -172,7 +172,7 @@ def test_scienceflow_root_tui_binds_long_research_to_selected_workspace(
     assert captured["branding"].fold_system_notices
     assert captured["branding"].welcome_text.splitlines() == [
         "Long Research · parallel workers explore, evaluate, and preserve the best result.",
-        "Start with /long-research · monitor with /tasks · continue with /resume",
+        "Chat history: scienceflow tui --resume · research tasks: /resume TASK_ID",
     ]
     assert captured["branding"].welcome_emphasis == (
         "Long Research",

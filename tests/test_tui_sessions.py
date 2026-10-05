@@ -74,7 +74,11 @@ def test_scienceflow_chat_entries_share_sessions_and_standalone_iq_is_separate(t
     assert listed.exit_code != 0 and "old" in listed.output
     agent_list = runner.invoke(main, ["agent", "sessions", "list", "--workspace", str(workspace)])
     assert agent_list.exit_code == 0 and "old" in agent_list.output
-    assert chosen[0].parent.name in agent_list.output
+    top_list = runner.invoke(main, ["sessions", "list", "--workspace", str(workspace)])
+    assert top_list.exit_code == 0 and top_list.output == agent_list.output
+    assert "UTC" in top_list.output
+    assert chosen[0].parent.name not in agent_list.output  # TUI exited before the first turn.
+    assert chosen[1].parent.name in agent_list.output
     iq_list = runner.invoke(iq_app, ["sessions", "list", "--workspace", str(workspace)])
     assert iq_list.exit_code == 0 and chosen[2].parent.name in iq_list.output
     assert "old" not in iq_list.output
@@ -86,11 +90,14 @@ def test_scienceflow_chat_entries_share_sessions_and_standalone_iq_is_separate(t
     )
     assert agent_resumed.exit_code == 0, agent_resumed.output
     assert chosen[-1] == old
+    no_task = runner.invoke(main, ["agent", "run", *args, "--resume", "--session", "old"])
+    assert no_task.exit_code == 0 and "no turn ran" in no_task.output
+    assert "scienceflow agent repl --resume --session ID" in no_task.output
     assert [message.content for message in JsonlConversationStore(old).load().messages] == [
         "earlier", "continued", "agent continuation"
     ]
     assert {item.id for item in SessionCatalog(workspace, ".scienceflow").list()} == {
-        "old", chosen[0].parent.name, chosen[1].parent.name
+        "old", chosen[1].parent.name
     }
     assert {item.id for item in SessionCatalog(workspace, ".inquirycraft").list()} == {
         chosen[2].parent.name
@@ -110,3 +117,5 @@ def test_public_tui_has_resume_and_session_but_no_session_log():
     assert agent_run.exit_code == 0, agent_run.output
     assert "--resume" in agent_run.output and "--session" in agent_run.output
     assert "--session-log" not in agent_run.output
+    assert "sessions" in CliRunner().invoke(main, ["--help"]).output
+    assert "chat" in CliRunner().invoke(main, ["resume", "--help"]).output.lower()

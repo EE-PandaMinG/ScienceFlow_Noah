@@ -113,7 +113,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
             version=package_version,
             welcome_text=(
                 "Long Research · parallel workers explore, evaluate, and preserve the best result.\n"
-                "Start with /long-research · monitor with /tasks · continue with /resume"
+                "Chat history: scienceflow tui --resume · research tasks: /resume TASK_ID"
             ),
             welcome_emphasis=("Long Research", "parallel workers", "best result"),
             **presentation_options,

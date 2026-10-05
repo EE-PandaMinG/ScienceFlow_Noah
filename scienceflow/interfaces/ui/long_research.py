@@ -79,7 +79,7 @@ class LongResearchInteraction:
             TuiCommandSpec("/web", "Open workspace Web monitor; /web stop stops only Web", ("stop",)),
             TuiCommandSpec("/research-usage", "Worker tokens and cache usage"),
             *((TuiCommandSpec("/stop", "Stop research and preserve progress"),
-            TuiCommandSpec("/resume", "Resume a saved research run"),
+            TuiCommandSpec("/resume", "Resume research task: /resume TASK_ID (chat: tui --resume)"),
             TuiCommandSpec("/attach", "Attach to a running research task"),
             TuiCommandSpec("/tasks", "Show all tasks in this workspace"),
             TuiCommandSpec("/status", "Task overview; /status N shows task details"),
@@ -294,20 +294,22 @@ class LongResearchInteraction:
             if callable(getattr(self._managed, "new_workspace", None)):
                 research_help = (
                     "Research: /long-research prepares a task · /tasks overview · /status N details\n"
-                    "Control: /stop N stops one task · /resume N continues research\n"
+                    "Control: /stop TASK_ID stops research · /resume TASK_ID restarts research\n"
                     "Advanced · Research: /attach N locates a task · /research-usage N tokens\n"
                     "Compatibility: /runs lists tasks · /select N locates a task"
                 )
             else:
                 research_help = (
                     "Research: /long-research prepares a task · /status progress\n"
-                    "Control: /stop stops research · /resume continues this workspace\n"
+                    "Control: /stop stops research · /resume continues research in this workspace\n"
                     "Advanced · Research: /attach follows research · /runs history · "
                     "/select NUMBER chooses a run · /research-usage worker tokens"
                 )
             await host.notice(
                 "Model: /models selects the chat model\n"
+                "Chat history (terminal): scienceflow tui --resume · --session ID selects a chat\n"
                 + research_help
+                + "\nResearch (terminal): scienceflow resume RUN_ID restarts a task"
                 + "\nAdvanced · Research models: models=<alias> · feedback-models=<alias> · model-policy=auto|fixed"
                 + "\nMonitor: /web opens Web · /web stop stops only Web"
                 "\nAdvanced · Resources: /resources host hardware"

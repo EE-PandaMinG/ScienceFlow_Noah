@@ -131,10 +131,15 @@ scienceflow tui --workspace "$PWD/sf_workspace" --resume
 ```
 
 The list always asks you to confirm a session. In a non-interactive terminal, use
-`--resume --session ID`. Chat resume restores conversation history; it does not
+`--resume --session ID` (a unique ID prefix works). Use
+`scienceflow sessions list --workspace "$PWD/sf_workspace"` to view chat IDs and
+update times; `scienceflow agent sessions list` shows the same entries. An unused
+new TUI session does not add an empty chat to that list. Chat resume restores
+conversation history; it does not
 restart research. The task board reattaches to living research processes and shows
 saved reports for completed tasks. An interrupted task remains paused until you
-explicitly enter `/resume N` in the TUI. ScienceFlow chat sessions, including
+explicitly enter `/resume TASK_ID` in the TUI, or run `scienceflow resume RUN_ID`
+for a research task. ScienceFlow chat sessions, including
 existing history, are listed and saved under `<workspace>/.scienceflow/sessions/`.
 `scienceflow agent` shares that same session list and directory. Both use InquiryCraft's
 session implementation; only the standalone `inquirycraft` CLI uses its separate

@@ -351,6 +351,9 @@ async def test_multi_task_help_groups_commands_and_explains_compatibility(tmp_pa
     help_text = host.notices[-1]
     assert help_text.startswith('Model: /models')
     assert 'Research:' in help_text
+    assert 'scienceflow tui --resume' in help_text
+    assert '/resume TASK_ID' in help_text
+    assert 'scienceflow resume RUN_ID' in help_text
     assert 'Advanced · Research:' in help_text
     assert 'Compatibility:' in help_text
     for spec in interaction.tui_commands:
