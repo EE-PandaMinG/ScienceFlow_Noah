@@ -74,6 +74,13 @@ Chat normally in the TUI, or enter <code>/long-research</code> to configure and 
 managed task. Closing the TUI detaches from research without terminating its workers.
 Research defaults to your selected chat model; use <code>/models</code> to switch.
 Use <code>/compact</code> to condense Chat context without deleting saved records.
+Ordinary TUI chat provides workspace-contained <code>read_text</code> and
+<code>write_text</code> tools, but no raw shell by default. Use <code>/permission</code>
+to inspect tool permissions and <code>/permission shell allow|deny</code> to grant or
+revoke shell access for the current TUI session. Enabled shell commands run as your
+current user with full host and network access, without an OS sandbox; the default
+timeout is 120 seconds unless a bounded timeout is supplied. This does not change
+LongResearch execution or <code>scienceflow agent</code> tools.
 </p>
 
 ### Minimal TUI example

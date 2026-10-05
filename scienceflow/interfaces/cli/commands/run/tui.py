@@ -13,12 +13,13 @@ from inquirycraft.runtime import AgentRuntime
 
 from scienceflow.foundation.config.llm.model_registry import load_model_registry
 from scienceflow.foundation.config.runtime.llm_lists import values
-from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory, plural_cli_options
+from scienceflow.interfaces.ui.llm_cli import TuiPoolRuntimeFactory, plural_cli_options
 from scienceflow.interfaces.ui.logo import COMPACT_LOGO_PIXELS, LOGO_PIXELS
 from scienceflow.interfaces.ui.long_research import LongResearchInteraction
+from scienceflow.interfaces.ui.permission import TuiPermissionInteraction
 
 
-def _pin_tui_chat_model(command: click.Command) -> click.Command:
+def _pin_tui_chat_model(command: click.Command, runtime_factory: TuiPoolRuntimeFactory) -> click.Command:
     """Keep ordinary TUI chat on one alias while preserving endpoint failover."""
 
     callback = command.callback
@@ -27,16 +28,17 @@ def _pin_tui_chat_model(command: click.Command) -> click.Command:
 
     @wraps(callback)
     def invoke(**kwargs):
-        aliases = values(kwargs.get("model"))
-        if not aliases:
-            registry = load_model_registry(Path(kwargs["model_config"]))
-            aliases = list(registry.default_aliases("code_models")[:1])
-        if len(aliases) != 1:
-            raise click.ClickException(
-                "TUI chat accepts exactly one model alias; switch it later with /models."
-            )
-        kwargs["model"] = aliases[0]
-        return callback(**kwargs)
+        with runtime_factory.permission_session():
+            aliases = values(kwargs.get("model"))
+            if not aliases:
+                registry = load_model_registry(Path(kwargs["model_config"]))
+                aliases = list(registry.default_aliases("code_models")[:1])
+            if len(aliases) != 1:
+                raise click.ClickException(
+                    "TUI chat accepts exactly one model alias; switch it later with /models."
+                )
+            kwargs["model"] = aliases[0]
+            return callback(**kwargs)
 
     command.callback = invoke
     for param in command.params:
@@ -88,9 +90,10 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
     except PackageNotFoundError:
         package_version = "dev"
 
+    runtime_factory = TuiPoolRuntimeFactory()
     host = create_cli(
         name="scienceflow-tui-host",
-        runtime_factory=PoolRuntimeFactory(),
+        runtime_factory=runtime_factory,
         model_config_default=Path("~/.config/scienceflow/models.json"),
         model_default_key="code_models",
         include_tui=True,
@@ -118,8 +121,10 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
             welcome_emphasis=("Long Research", "parallel workers", "best result"),
             **presentation_options,
         ),
-        tui_interceptor_factory=lambda workspace: LongResearchInteraction(
-            Path(workspace), managed=True, multi_task=True, initial_command=initial_command
+        tui_interceptor_factory=lambda workspace: TuiPermissionInteraction(
+            LongResearchInteraction(
+                Path(workspace), managed=True, multi_task=True, initial_command=initial_command
+            ), runtime_factory.permissions,
         ),
         session_namespace=".scienceflow",
     )
@@ -136,7 +141,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
                 "and return the requested JSON contract. Do not start research workers "
                 "during preparation."
             )
-    return _pin_tui_chat_model(plural_cli_options(command))
+    return _pin_tui_chat_model(plural_cli_options(command), runtime_factory)
 
 
 tui = build_tui_command()
