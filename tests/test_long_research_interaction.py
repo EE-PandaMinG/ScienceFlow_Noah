@@ -273,7 +273,7 @@ async def test_cancel_and_close_stop_owned_parallel_run(
 
 @pytest.mark.asyncio
 async def test_resource_monitor_is_closed_with_interaction(monkeypatch, tmp_path):
-    from scienceflow.interfaces.ui.research.resources import ResourceMonitor
+    from scienceflow.interfaces.ui.research.telemetry.resources import ResourceMonitor
 
     monkeypatch.setattr(ResourceMonitor, 'sample', lambda self: 'Host · CPU 10%')
     host = FakeHost()

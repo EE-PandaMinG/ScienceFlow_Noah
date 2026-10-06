@@ -18,7 +18,12 @@ from inquirycraft.memory import Message
 from inquirycraft.tools import ToolResult
 
 from scienceflow.agent.core.ports.callback_ports import resolve_agent_callback
-from scienceflow.research.quality.gate import legacy_score_contract_enabled
+from scienceflow.research.quality.gate.score_contract import (
+    agent_gate_policy_context as _agent_gate_policy_context,
+    legacy_score_gate_enabled_for_agent as _legacy_score_gate_enabled_for_agent,
+    score_contract_errors as _score_contract_errors,
+    score_contract_user_message as _score_contract_user_message,
+)
 from scienceflow.runtime.safety.policy.agent_policies.bash_utils import (
     _looks_like_bare_solution_run,
     _python_script_run_rel_path,
@@ -29,8 +34,6 @@ from scienceflow.runtime.safety.policy.execution_policy import (
     _extract_metric_from_stdout,
     _write_full_run_stamp,
     compute_fullrun_text_tail,
-    final_validation_score_contract_error,
-    format_score_contract_repair_feedback,
     looks_like_score_source_template,
     resolve_lower_is_better_for_bare_snapshot,
     validation_metric_value_error,
@@ -40,52 +43,6 @@ from scienceflow.research.control.execution_value.evidence.quick_test import (
     parse_bash_tool_elapsed_sec,
     strip_bash_tool_prefix,
 )
-
-def _agent_gate_policy_context(agent: Any) -> tuple[str, str, str]:
-    profile = str(getattr(agent, "_scienceflow_task_profile", "auto") or "auto")
-    backend = str(getattr(agent, "_scienceflow_evaluator_backend", "") or "")
-    artifact = str(getattr(agent, "_lnr_candidate_artifact_rel", "") or "")
-    return profile, backend, artifact
-
-
-def _legacy_score_gate_enabled_for_agent(agent: Any) -> bool:
-    profile, backend, artifact = _agent_gate_policy_context(agent)
-    return legacy_score_contract_enabled(
-        task_profile=profile,
-        evaluator_backend=backend,
-        candidate_artifact=artifact,
-    )
-
-
-def _score_contract_user_message(
-    detail: str, *, script_label: str = "solution.py"
-) -> str:
-    return format_score_contract_repair_feedback(detail, script_label=script_label)
-
-
-def _score_contract_errors(stdout: str) -> tuple[str | None, str | None]:
-    """Return ``(hard_error, soft_warning)`` for bare-run score parsing.
-
-    Missing, unparseable, or non-finite ``Final Validation Score`` is a hard gate:
-    the node has no reliable metric. A parseable score that is not the last
-    stdout line is only a formatting issue; forcing another full training run for
-    that case is too expensive and does not improve metric trust once submission
-    validation has already passed.
-    """
-    hard_error = final_validation_score_contract_error(
-        stdout,
-        require_present=True,
-        require_final_line=False,
-    )
-    if hard_error:
-        return hard_error, None
-    soft_warning = final_validation_score_contract_error(
-        stdout,
-        require_present=True,
-        require_final_line=True,
-    )
-    return None, soft_warning
-
 
 _MISSING_FINAL_SCORE_ERROR = (
     "missing required `Final Validation Score: <finite_float>` line"

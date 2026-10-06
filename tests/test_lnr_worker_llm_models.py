@@ -20,6 +20,7 @@ from scienceflow.foundation.config.schema.settings import (
     apply_parallel_manifest_agent_overrides,
 )
 from scienceflow.research.solver.lnr.orchestration.solver import LnrSolver
+from scienceflow.research.solver.lnr.orchestration.coordinator.run import agent_coordination
 
 
 def _solver_for_worker(cfg: Config, *, worker_index: int, worker_count: int = 4):
@@ -44,7 +45,7 @@ def test_worker_code_models_pin_primary_and_keep_failover_pool() -> None:
     cfg.agent.code.api_routing_mode = "sticky_failover"
 
     solver, events = _solver_for_worker(cfg, worker_index=1)
-    stage = solver._worker_llm_stage_override()
+    stage = agent_coordination._worker_llm_stage_override(solver)
 
     assert stage is not None
     assert stage.model == "model-b"
@@ -69,7 +70,7 @@ def test_worker_code_models_cycle_shorter_lists_and_broadcast_single_url() -> No
     cfg.agent.code.base_urls = ["https://shared.example/v1"]
 
     solver, _events = _solver_for_worker(cfg, worker_index=3)
-    stage = solver._worker_llm_stage_override()
+    stage = agent_coordination._worker_llm_stage_override(solver)
 
     assert stage is not None
     assert stage.model == "model-b"
@@ -102,7 +103,7 @@ def test_worker_spreads_aliases_while_retaining_each_models_endpoints(tmp_path) 
     cfg.agent.code.model_config_path = str(registry)
 
     solver, _events = _solver_for_worker(cfg, worker_index=1)
-    stage = solver._worker_llm_stage_override()
+    stage = agent_coordination._worker_llm_stage_override(solver)
 
     assert stage.model_aliases == ["qwen", "deepseek"]
     assert stage.models == ["qwen3-coder", "deepseek-v4-flash", "deepseek-v4-flash"]
@@ -116,7 +117,7 @@ def test_worker_without_models_preserves_existing_sticky_key_pool_behavior() -> 
     cfg.agent.code.api_routing_mode = "sticky_failover"
 
     solver, events = _solver_for_worker(cfg, worker_index=2)
-    stage = solver._worker_llm_stage_override()
+    stage = agent_coordination._worker_llm_stage_override(solver)
 
     assert stage is not None
     assert stage.model == cfg.agent.code.model
@@ -138,7 +139,7 @@ def test_worker_feedback_models_can_pin_primary_endpoint() -> None:
     ]
 
     solver, events = _solver_for_worker(cfg, worker_index=2)
-    stage = solver._worker_llm_stage_override("feedback")
+    stage = agent_coordination._worker_llm_stage_override(solver, "feedback")
 
     assert stage is not None
     assert stage.model == "judge-c"

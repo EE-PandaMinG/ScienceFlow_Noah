@@ -1,4 +1,5 @@
 """Long Horizon Repl contracts: stage."""
+# ruff: noqa: F405 - this split contract intentionally consumes the shared fixture API.
 
 from __future__ import annotations
 
@@ -9,6 +10,9 @@ from scienceflow.research.solver.lnr.orchestration.coordinator.lifecycle.context
 )
 from scienceflow.research.solver.lnr.orchestration.coordinator.lifecycle.stage.prompt import (
     _parse_stage_commit_json_block,
+)
+from scienceflow.research.solver.lnr.orchestration.coordinator.lifecycle.stage import (
+    experiment_state,
 )
 
 
@@ -378,7 +382,8 @@ def test_lhr_stage_commit_experiment_state_uses_only_structured_query_fields(
         },
     }
 
-    state = solver._build_stage_commit_experiment_state(
+    state = experiment_state._build_stage_commit_experiment_state(
+        solver,
         stage_id="S03",
         metric_event=metric_event,
     )
@@ -435,7 +440,8 @@ def test_lhr_stage_commit_experiment_state_does_not_readd_rejected_active_stage(
             }
         )
 
-    state = solver._build_stage_commit_experiment_state(
+    state = experiment_state._build_stage_commit_experiment_state(
+        solver,
         stage_id="S03",
         metric_event={
             "metric_value": 0.06,
@@ -456,7 +462,8 @@ def test_lhr_stage_commit_experiment_state_does_not_repeat_committed_stage_as_pe
     solver._task_metric_lower_is_better = True
     solver.lhr = SimpleNamespace(stage_commit_experiment_state_enabled=True)
 
-    state = solver._build_stage_commit_experiment_state(
+    state = experiment_state._build_stage_commit_experiment_state(
+        solver,
         stage_id="S02",
         metric_event={
             "metric_value": 0.08,

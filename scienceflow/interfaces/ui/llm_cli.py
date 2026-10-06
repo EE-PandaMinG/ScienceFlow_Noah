@@ -24,7 +24,7 @@ from inquirycraft.tools.base import ToolResult
 from scienceflow.foundation.config.llm.llm_factory import build_stage_llm
 from scienceflow.foundation.config.runtime.llm_lists import values
 from scienceflow.foundation.config.schema.settings import StageConfig
-from scienceflow.interfaces.ui.permission import TuiToolPermissions
+from scienceflow.interfaces.ui.research.control.permission import TuiToolPermissions
 
 
 class PoolRuntimeFactory:

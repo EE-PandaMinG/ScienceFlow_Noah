@@ -10,7 +10,7 @@ from scienceflow.interfaces.ui.monitor_trace.presentation.builder import (
 )
 from scienceflow.interfaces.ui.research.control.tasks.projection import TaskProjection
 from scienceflow.interfaces.ui.research.control.tasks.records import TaskIndex
-from scienceflow.interfaces.ui.research.resources import ResourceMonitor
+from scienceflow.interfaces.ui.research.telemetry.resources import ResourceMonitor
 from scienceflow.research.reporting import generate_task_report, read_report_manifest
 from scienceflow.runtime.parallel.control import get_run, list_runs
 from scienceflow.runtime.parallel.control.selection import workspace_aliases

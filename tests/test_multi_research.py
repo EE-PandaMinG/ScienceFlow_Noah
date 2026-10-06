@@ -13,7 +13,7 @@ from scienceflow.interfaces.ui.research.control.tasks.metrics import ResourceFac
 from scienceflow.interfaces.ui.research.control.tasks.projection import TaskProjection
 from scienceflow.interfaces.ui.research.control.tasks.records import TaskIndex
 from scienceflow.interfaces.ui.research.research_events import ResearchEvents
-from scienceflow.interfaces.ui.research.resources import (
+from scienceflow.interfaces.ui.research.telemetry.resources import (
     allocation_preview,
     allocation_summary,
 )

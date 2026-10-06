@@ -18,7 +18,7 @@ from scienceflow.interfaces.ui.llm_cli import (
     TuiPoolRuntimeFactory,
     TuiShellTool,
 )
-from scienceflow.interfaces.ui.permission import (
+from scienceflow.interfaces.ui.research.control.permission import (
     TuiPermissionInteraction,
     TuiToolPermissions,
 )

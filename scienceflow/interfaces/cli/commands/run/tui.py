@@ -16,7 +16,9 @@ from scienceflow.foundation.config.runtime.llm_lists import values
 from scienceflow.interfaces.ui.llm_cli import TuiPoolRuntimeFactory, plural_cli_options
 from scienceflow.interfaces.ui.logo import COMPACT_LOGO_PIXELS, LOGO_PIXELS
 from scienceflow.interfaces.ui.long_research import LongResearchInteraction
-from scienceflow.interfaces.ui.permission import TuiPermissionInteraction
+from scienceflow.interfaces.ui.research.control.permission import (
+    TuiPermissionInteraction,
+)
 
 
 def _pin_tui_chat_model(command: click.Command, runtime_factory: TuiPoolRuntimeFactory) -> click.Command:

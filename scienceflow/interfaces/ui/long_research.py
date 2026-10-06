@@ -145,7 +145,7 @@ class LongResearchInteraction:
             model_config_setup_hint,
             model_registry_brief,
         )
-        from scienceflow.interfaces.ui.research.resources import ResourceMonitor
+        from scienceflow.interfaces.ui.research.telemetry.resources import ResourceMonitor
 
         if hasattr(host, "set_resource_status"):
             self._resources = ResourceMonitor(self.workspace)

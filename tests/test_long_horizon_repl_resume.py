@@ -1,10 +1,13 @@
 """Long Horizon Repl contracts: resume."""
+# ruff: noqa: F405 - this split contract intentionally consumes the shared fixture API.
 
 from __future__ import annotations
 
 from tests._long_horizon_repl_support import *  # noqa: F401,F403
 from scienceflow.research.solver.lnr.orchestration.coordinator.resource import advisory, prompt_projection
 from scienceflow.research.solver.lnr.orchestration.coordinator.run import coordination, event_projection
+from scienceflow.research.solver.lnr.orchestration.coordinator.evaluation import metric_projection
+from scienceflow.research.solver.lnr.orchestration.coordinator.lifecycle.stage import experiment_state
 
 
 def test_lhr_agent_metric_only_snapshot_without_submission(tmp_path: Path) -> None:
@@ -376,7 +379,7 @@ def test_metric_event_uses_task_direction_over_declared_snapshot_value(tmp_path:
         encoding="utf-8",
     )
 
-    event = solver._metric_event_from_workspace()
+    event = metric_projection._metric_event_from_workspace(solver)
 
     assert event is not None
     assert event["lower_is_better"] is False
@@ -844,7 +847,8 @@ def test_lhr_stage_commit_experiment_state_keeps_abandoned_lineage_global_best(
             }
         )
 
-    state = solver._build_stage_commit_experiment_state(
+    state = experiment_state._build_stage_commit_experiment_state(
+        solver,
         stage_id="S03",
         metric_event={
             "metric_value": 0.80,

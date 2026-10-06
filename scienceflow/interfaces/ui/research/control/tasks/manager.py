@@ -202,12 +202,12 @@ class MultiResearch:
             await asyncio.sleep(_POLL_INTERVAL_SEC)
 
     def resource_summary(self, host_summary):
-        from ...resources import allocation_summary
+        from ...telemetry.resources import allocation_summary
 
         return allocation_summary(host_summary, self.entries, self.rows)
 
     def resource_preview(self, draft):
-        from ...resources import allocation_preview
+        from ...telemetry.resources import allocation_preview
         return allocation_preview(self.entries, self.rows, self.preparing, draft)
 
     async def launch(self, host):
@@ -230,7 +230,7 @@ class MultiResearch:
                 status=row['status'],
                 name=name,
             )
-            from ...resources import task_allocation_line
+            from ...telemetry.resources import task_allocation_line
             allocation = task_allocation_line(
                 f"Task {entry['number']}", name, row
             )

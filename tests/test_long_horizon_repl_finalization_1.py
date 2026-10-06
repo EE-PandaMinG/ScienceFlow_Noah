@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from tests._long_horizon_repl_support import *  # noqa: F401,F403
 from scienceflow.research.solver.lnr.orchestration.coordinator.run import agent_coordination, coordination
+from scienceflow.research.solver.lnr.orchestration.coordinator.evaluation.profile import EvaluationProfileOwner
 from scienceflow.research.solver.lnr.orchestration.runtime import LnrRuntime, RunMode, RunSpec, RuntimeServices
 
 
@@ -566,7 +567,8 @@ def test_lhr_primary_gate_accepts_complete_result_without_submission(
     solver.deadline = float("inf")
     solver.gate_service = CandidateAssessmentService.default()
 
-    facts = solver._record_evaluator_stage_events(
+    facts = EvaluationProfileOwner._record_evaluator_stage_events(
+        solver,
         stage_id="S03",
         metric_event={
             "metric_value": 0.8,

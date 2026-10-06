@@ -77,18 +77,28 @@ async def test_process_session_normal_and_nonzero_exit_have_typed_lifecycle(
 
 
 @pytest.mark.asyncio
-async def test_process_session_timeout_terminates_and_unregisters_process_group(
+async def test_process_session_timeout_after_flush_preserves_output_and_unregisters_group(
     tmp_path: Path,
 ) -> None:
+    flushed = asyncio.Event()
+
+    def on_chunk(chunk: ProcessStreamChunk) -> None:
+        if chunk.text == "ready\n":
+            flushed.set()
+
     adapter = InquiryCraftProcessAdapter(
         terminate_fn=lambda process, **_: terminate_process_tree(process, grace=0.1)
     )
     session = ProcessExecutionSession(
-        _request(tmp_path, "import time; print('ready', flush=True); time.sleep(30)", timeout=0.1),
+        _request(tmp_path, "import time; print('ready', flush=True); time.sleep(30)"),
         adapter=adapter,
+        on_chunk=on_chunk,
     )
+    running = asyncio.create_task(session.run())
+    await asyncio.wait_for(flushed.wait(), timeout=2)
 
-    outcome = await session.run()
+    await session.terminate(ProcessStatus.TIMED_OUT, sigterm_grace=0.1)
+    outcome = await running
 
     assert outcome.status is ProcessStatus.TIMED_OUT
     assert outcome.output.stdout == "ready\n"
