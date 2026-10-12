@@ -85,19 +85,9 @@ manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIG
 [脱敏的多端点配置示例](../examples/models.example.json)。工作区和恢复选项可运行
 `scienceflow tui --help` 查看。进入 TUI 后，使用 `/long-research` 准备并启动托管研究任务。
 
-聊天和任务列表保留在启动工作区；单个任务可指定另一处**本机**执行根目录：
-
-```bash
-scienceflow run circle-packing --workspace "$PWD/sf_workspace" --execution-root /data/experiments
-```
-
-TUI 中输入 `/long-research circle-packing workspace=/data/experiments`，也可用自然语言
-说明执行目录。显式参数不调用模型解析目录；自然语言先进行禁用工具的位置提取，再分配目录。
-每次指定根目录都会创建独立任务子目录，不覆盖已有实验，不复制数据集。相对执行根目录、
-相对数据路径均以管理工作区解释；不配置时保留现有默认目录布局。
-`--execution-root` 不可与 `--manifest` 混用。准备后要换位置，请 `/cancel` 后重新发起任务；
-恢复始终使用原目录。准备工具使用独立任务目录，shell 默认可用；普通聊天的目录和
-session 不变。本阶段不支持 SSH；宿主接口由锁定的 InquiryCraft 0.9.2 提供。
+在 TUI 中输入 `/long-research` 选择任务或描述新任务，检查通过后输入 `run`。
+使用 `/tasks` 查看进度，`/web` 打开网页监控。工作目录、恢复、shell 与报告详见
+[运行指南](RUNTIME_GUIDE.md)。
 
 ## 最新动态
 
@@ -148,43 +138,3 @@ ScienceFlow 在进程内使用 InquiryCraft `0.9.2` 作为通用 Agent Runtime�
 机器学习工程、科学建模和数学优化任务共享同一套 Stage Gate 与 Evaluator contract。
 配置字段、仓库职责边界、任务 contract 和 Benchmark 细节统一放在上述文档中，不在 README
 重复展开。
-
-## 运行注意
-
-- MLE-bench 任务需要数据根、任务 `exp_id`、`submission.csv` contract 对齐。
-- 不同任务 profile 的旧 workspace 不应混用 resume，否则可能继承错误 prompt、dataset 或 artifact 维度。
-- CLI 与 TUI 的启动、恢复统一执行 CPU/GPU 资源预留检查。使用 `--manifest` 时，worker、时间、CPU/GPU、数据和配置在 manifest 中设置，混用对应 CLI 参数会明确报错。
-- TUI 通过轻量注册表变更感知其他终端的启动和恢复，不重新扫描已结束实验目录。
-- `stopped_by_user` 表示人为停止的可恢复终态，不等价于失败；后续 resume 应从 `state.json` 的累计预算和 workspace stage 继续。
-- TUI 底部资源栏显示本机资源概况；任务卡和 `/status N` 展示任务及 worker 的资源与用量。
-- `scienceflow tui --resume` 恢复本工作区聊天会话及简短研究事件；TUI 内 `/resume N` 恢复编号为 N 的研究任务。`/status` 等查询只即时显示，不写入研究事件历史。
-- 普通聊天只在当前模型请求中读取任务面板的简短状态摘要，不把这份摘要写入聊天记录或影响研究 worker。
-
-## 验证
-
-```bash
-.venv/bin/pytest -q \
-  tests/test_inquirycraft_dependency_boundary.py \
-  tests/test_inquirycraft_cli_composition.py \
-  tests/test_long_research_interaction.py
-```
-
-发布 workflow 仅接受与项目版本一致的 tag；它会构建并检查 wheel 与源码包，在干净环境中
-安装 wheel，运行公共依赖契约，再通过 PyPI Trusted Publishing 上传。完整回归命令为
-`uv run --locked pytest -q`。ML、GPU、MLE-bench 与 scientific-design 测试需要对应的可选依赖。
-
-TUI 聊天和任务准备默认可执行 shell（当前用户权限，无操作系统沙箱），无默认超时。
-Esc 取消当前聊天，退出 TUI 回收前台命令及子进程；长程 worker 的执行控制保持独立。
-
-### 任务收尾与报告
-
-研究结束、失败或停止后，托管任务会进入独立的报告阶段，默认预算 300 秒，
-不占研究预算；提前完成即结束。manifest 顶层 `report_budget_sec` 可设置该预算。
-报告先生成本地证据版，再在剩余预算内补充模型分析。任务目录包含
-`report.md`、`report.html`、`report.json` 和 `report_assets/`，各次运行归档位于
-`task_logs/reports/attempt-NNN/`。Web 打开 HTML 后可通过浏览器打印保存 PDF，
-不安装服务端 PDF 引擎。
-
-报告生成失败时，对已结束的研究执行原有 `resume` 只重试报告，不重新探索、
-不占用研究 CPU/GPU 配额；仍有研究预算的暂停任务继续原有恢复流程。报告发布使用
-原子版本切换，中断时保留上一个完整版本；历史版本暂不自动清理。

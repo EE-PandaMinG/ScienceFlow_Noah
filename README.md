@@ -69,125 +69,26 @@ scienceflow config path     # edit the generated private model registry
 scienceflow tui --workspace "$PWD/sf_workspace"
 ```
 
-`scienceflow run [TARGET]` is the single command-line entry point for managed
-research. `TARGET` may be a built-in task ID, a local task folder, or a new task
-description:
+In the TUI, enter `/long-research` to choose a task or describe a new one.
+For example, prepare a CPU-only task without a dataset:
 
-The main `scienceflow --help` page shows everyday commands. Advanced commands
-such as `scienceflow parallel` and `scienceflow monitor-trace` remain available
-directly and have their own `--help` pages.
+```text
+/long-research circle-packing workers=2 cpu=16 gpu=cpu duration=1h
+```
+
+Follow the preparation prompts, then enter `run` after preflight passes.
+Use `/tasks` to track progress and `/web` to open the browser monitor.
+Closing the TUI leaves managed research running.
+
+For command-line use and session recovery:
 
 ```bash
 scienceflow run circle-packing --workspace "$PWD/sf_workspace"
-scienceflow run "optimize a new packing problem" --workspace "$PWD/sf_workspace"
-```
-
-Keep chat sessions and the task board in the management workspace while placing
-one task on another **local** disk:
-
-```bash
-scienceflow run circle-packing --workspace "$PWD/sf_workspace" --execution-root /data/experiments
-```
-
-In TUI use `/long-research circle-packing workspace=/data/experiments`, or describe
-the execution directory in natural language. The explicit option needs no model
-call to resolve its location. Natural-language location extraction runs without
-tools before allocation; ambiguous requests can be retried with `workspace=...`.
-Each explicit root gets a unique task subdirectory. Relative roots and input data
-paths resolve against the management workspace; datasets are not copied. Without
-an override the existing directory layout is unchanged. `--execution-root` cannot
-be combined with `--manifest`. Cancel preparation and start a new task to change
-its directory; resume always reuses the recorded directory. SSH execution is not
-implemented in this phase. Preparation uses a separate runtime in the task
-directory, with shell available without changing the chat session.
-These host capabilities are included in the pinned InquiryCraft 0.9.2 dependency.
-
-CLI and TUI starts and resumes share the same CPU/GPU reservation checks.
-With `--manifest`, set workers, duration, CPU/GPU, data and configuration in the
-manifest; combining it with those CLI options is rejected. The TUI detects
-external starts/resumes through lightweight registry changes without rescanning
-completed experiment directories.
-
-On an interactive terminal, `scienceflow run` with no target lists built-in and
-workspace-local tasks and includes a new-description option. In a pipe or other
-non-interactive process, provide `TARGET` or `--manifest`; the command exits
-immediately instead of prompting. The TUI uses the same catalog when
-`/long-research` is entered without an argument.
-
-<p align="justify">
-Chat normally in the TUI, or enter <code>/long-research</code> to configure and launch a
-managed task. Closing the TUI detaches from research without terminating its workers.
-Research defaults to your selected chat model; use <code>/models</code> to switch.
-Use <code>/compact</code> to condense Chat context without deleting saved records.
-<code>scienceflow tui --resume</code> restores the latest workspace chat session and
-its concise ScienceFlow activity timeline; <code>/resume N</code> resumes research
-task N. Read-only slash queries remain visible now but are omitted from saved
-ScienceFlow activity.
-Ordinary chat receives a short snapshot of the task panel state for the current
-request; this snapshot is not added to the saved conversation.
-</p>
-
-TUI chat and task preparation provide workspace-contained `read_text`, `write_text`,
-and `workspace_info` (current directory, bounded listing and file metadata).
-Shell is available by default and runs as your user with host/network access and
-no OS sandbox. There is no default timeout. Use Esc to cancel the active chat or
-exit TUI to stop foreground commands and their child processes. An explicit shell
-timeout can be set up to 3600 seconds. Long-research workers retain their separate
-execution controls.
-
-### Minimal TUI example
-
-<p align="justify">
-The built-in <code>circle-packing</code> example needs no dataset. After starting the TUI,
-complete these prompts in order:
-</p>
-
-**1 · Prepare the task**
-
-```text
-/long-research circle-packing data=none workers=2 cpu=16 gpu=cpu duration=1h
-```
-
-**2 · Accept the model defaults**
-
-```text
-default
-```
-
-**3 · Start after preflight passes**
-
-```text
-run
-```
-
-<p align="justify">
-ScienceFlow runs preflight checks, starts two CPU workers, evaluates candidate solutions,
-and retains the best valid artifact under the workspace. Follow it with
-<code>/tasks</code> or <code>/status 1</code>.
-</p>
-
-<table width="100%">
-  <thead>
-    <tr>
-      <th width="500" align="center">Command</th>
-      <th width="500" align="center">Purpose</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td align="left"><code>/long-research DESCRIPTION</code></td><td align="left">Prepare and launch a research task.</td></tr>
-    <tr><td align="left"><code>/tasks</code>, <code>/status N</code></td><td align="left">List tasks or inspect one task.</td></tr>
-    <tr><td align="left"><code>/status N</code></td><td align="left">Inspect a task, including detailed model usage and worker resources.</td></tr>
-    <tr><td align="left"><code>/stop N</code>, <code>/resume N</code>, <code>/attach N</code></td><td align="left">Control or locate a task.</td></tr>
-    <tr><td align="left"><code>/models</code></td><td align="left">Select the fixed chat model.</td></tr>
-    <tr><td align="left"><code>/web</code>, <code>/web stop</code></td><td align="left">Start or stop the workspace Web monitor.</td></tr>
-  </tbody>
-</table>
-
-Resume the latest chat session with:
-
-```bash
 scienceflow tui --workspace "$PWD/sf_workspace" --resume
 ```
+
+See the [runtime guide](docs/public/RUNTIME_GUIDE.md) for workspace placement,
+task controls, shell behavior, and reports.
 
 ## How it works
 
