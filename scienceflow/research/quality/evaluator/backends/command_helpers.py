@@ -19,10 +19,14 @@ import json
 import re
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-from scienceflow.research.quality.evaluator.cache import digest_mapping, evaluator_cache_key
+from scienceflow.research.quality.evaluator.cache import (
+    digest_mapping,
+    evaluator_cache_key,
+)
 from scienceflow.foundation.contracts import CandidateRef, EvalContext
 from scienceflow.research.quality.evaluator.backends.command_env import (
     task_command_env,
@@ -31,7 +35,9 @@ from scienceflow.research.quality.evaluator.backends.command_env import (
 
 
 def candidate_artifact(ctx: EvalContext) -> str:
-    return clean_relative_path(str_cfg(ctx, ("candidate", "artifact"), "artifacts/best_solution.json"))
+    return clean_relative_path(
+        str_cfg(ctx, ("candidate", "artifact"), "artifacts/best_solution.json")
+    )
 
 
 def cache_key(ctx: EvalContext, candidate: CandidateRef) -> str:
@@ -52,13 +58,18 @@ def cache_key(ctx: EvalContext, candidate: CandidateRef) -> str:
 
 def cache_path(ctx: EvalContext) -> Path:
     evaluator = get_cfg(ctx.cfg, "evaluator", None)
-    name = str(get_cfg(evaluator, "cache_log", "evaluator_cache.jsonl") or "evaluator_cache.jsonl").strip()
+    name = str(
+        get_cfg(evaluator, "cache_log", "evaluator_cache.jsonl")
+        or "evaluator_cache.jsonl"
+    ).strip()
     if not name or "/" in name or "\\" in name or name.startswith("."):
         name = "evaluator_cache.jsonl"
     return ctx.task_root / "task_logs" / name
 
 
-def run_command(ctx: EvalContext, candidate: CandidateRef, command: str) -> dict[str, Any]:
+def run_command(
+    ctx: EvalContext, candidate: CandidateRef, command: str
+) -> dict[str, Any]:
     timeout = float(number_cfg(ctx, ("command", "timeout_sec"), 300.0) or 300.0)
     cwd = command_cwd(ctx)
     env = task_command_env(ctx)
@@ -99,7 +110,7 @@ def run_command(ctx: EvalContext, candidate: CandidateRef, command: str) -> dict
 
 def render_command(ctx: EvalContext, candidate: CandidateRef, command: str) -> str:
     artifact_abs = ctx.workspace / candidate.artifact_path
-    python = task_python_executable(ctx)
+    python = task_python_executable(ctx) or Path(sys.executable)
     values = {
         "artifact_path": shlex.quote(candidate.artifact_path),
         "artifact_abs_path": shlex.quote(str(artifact_abs)),
@@ -110,6 +121,13 @@ def render_command(ctx: EvalContext, candidate: CandidateRef, command: str) -> s
         "python": shlex.quote(str(python)) if python else "python",
         "python_executable": shlex.quote(str(python)) if python else "python",
     }
+    if "{task_dir}" in command:
+        source = str(
+            get_cfg(get_cfg(ctx.cfg, "evaluator", None), "package_source", "") or ""
+        )
+        if not source:
+            raise ValueError("A task_dir evaluator command requires package_source.")
+        values["task_dir"] = shlex.quote(source)
     rendered = command
     for key, value in values.items():
         rendered = rendered.replace("{" + key + "}", value)
@@ -201,7 +219,9 @@ def number_cfg(ctx: EvalContext, path: tuple[str, str], default: float) -> float
     return as_float(nested_cfg(ctx, path, default))
 
 
-def bool_cfg(ctx: EvalContext, path: tuple[str, str], *, default: bool | None) -> bool | None:
+def bool_cfg(
+    ctx: EvalContext, path: tuple[str, str], *, default: bool | None
+) -> bool | None:
     value = nested_cfg(ctx, path, default)
     return as_bool_value(value, default=default)
 

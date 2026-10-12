@@ -16,7 +16,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
-from scienceflow.runtime.events import legacy_event_from_runtime, runtime_event_from_legacy
+from scienceflow.runtime.events import (
+    legacy_event_from_runtime,
+    runtime_event_from_legacy,
+)
 from scienceflow.runtime.core.kernel.journal import JsonEventJournal
 
 from scienceflow.research.solver.lnr.lifecycle.stage.metrics.score_summary import (
@@ -41,14 +44,18 @@ from scienceflow.research.solver.lnr.orchestration.state_projection import (
     _utc_iso,
     build_lhr_state_from_events,
 )
-from scienceflow.research.solver.lnr.orchestration.runtime.services.worker_services import LegacyRunStatus
+from scienceflow.research.solver.lnr.orchestration.runtime.services.worker_services import (
+    LegacyRunStatus,
+)
 
 
 LHR_EVENTS_JSONL = "lhr_events.jsonl"
 LHR_STATE_JSON = "lhr_state.json"
 
 
-def _backfill_lhr_state_from_stage_performance(state: dict[str, Any], stage_csv: Path) -> dict[str, Any]:
+def _backfill_lhr_state_from_stage_performance(
+    state: dict[str, Any], stage_csv: Path
+) -> dict[str, Any]:
     records = read_stage_performance_records(stage_csv)
     if not records:
         return state
@@ -65,7 +72,10 @@ def _backfill_lhr_state_from_stage_performance(state: dict[str, Any], stage_csv:
             )
             for worker_id, count in stage_counts.items():
                 worker = workers.get(worker_id)
-                if isinstance(worker, dict) and _int_or_zero(worker.get("stage_count")) < count:
+                if (
+                    isinstance(worker, dict)
+                    and _int_or_zero(worker.get("stage_count")) < count
+                ):
                     worker["stage_count"] = count
     best = build_score_summary(records).get("valid_best_score")
     if isinstance(best, dict) and best:
@@ -80,7 +90,9 @@ def _backfill_lhr_state_from_stage_performance(state: dict[str, Any], stage_csv:
 def _score_summary_best_to_lhr_global_best(best: dict[str, Any]) -> dict[str, Any]:
     return {
         "candidate_id": best.get("candidate_id") or "",
-        "worker_id": best.get("worker_id") or _worker_id_from_candidate(best.get("candidate_id")) or "",
+        "worker_id": best.get("worker_id")
+        or _worker_id_from_candidate(best.get("candidate_id"))
+        or "",
         "stage_id": best.get("stage_id") or "",
         "snapshot_id": "",
         "metric_value": best.get("value"),
@@ -185,6 +197,25 @@ class LHRStateMachineStore:
         self.run_status = "created"
         self.started_at = _now_ts()
         self.last_event_at = self.started_at
+        self._restore_monitor_counters()
+
+    def _restore_monitor_counters(self) -> None:
+        """Replay durable telemetry once on startup without emitting new events."""
+        for event in _read_events(self.events_path):
+            if event.get("worker_id") != self.worker_id:
+                continue
+            self.event_count += 1
+            timestamp = _float_or_zero(event.get("timestamp"))
+            if timestamp > 0:
+                self.started_at = min(self.started_at, timestamp)
+                self.last_event_at = max(self.last_event_at, timestamp)
+            self._update_counters(event)
+        # Old process leases and waits are not evidence of live resources now.
+        self.resource_active_leases.clear()
+        self.resource_pending_gpu_jobs.clear()
+        self.resource_gpu_pressure_states.clear()
+        self.agent_backoff_wait_active.clear()
+        self._resource_gpu_queue_wait_started_at.clear()
 
     @property
     def events_path(self) -> Path:
@@ -243,15 +274,21 @@ class LHRStateMachineStore:
                     "progress_heartbeats": self.progress_heartbeat_count,
                     "agent_backoff_waits": self.agent_backoff_wait_count,
                     "post_feedback_actions": self.post_feedback_action_count,
-                    "agent_backoff_wait_sec_total": round(self.agent_backoff_wait_sec_total, 3),
-                    "agent_backoff_wait_sec_max": round(self.agent_backoff_wait_sec_max, 3),
+                    "agent_backoff_wait_sec_total": round(
+                        self.agent_backoff_wait_sec_total, 3
+                    ),
+                    "agent_backoff_wait_sec_max": round(
+                        self.agent_backoff_wait_sec_max, 3
+                    ),
                     "last_event_at": self.last_event_at,
                     "last_event_at_utc": _utc_iso(self.last_event_at),
                 }
             },
             "global_best": best,
             "global_best_as_of": self.global_best_as_of,
-            "global_best_as_of_utc": _utc_iso(self.global_best_as_of) if self.global_best_as_of else "",
+            "global_best_as_of_utc": _utc_iso(self.global_best_as_of)
+            if self.global_best_as_of
+            else "",
             "stage_count": self.stage_count,
             "estra_decisions": self.estra_decision_count,
             "estra_invalid_decisions": self.estra_invalid_decision_count,
@@ -262,10 +299,14 @@ class LHRStateMachineStore:
             "estra_current_redirect_count": self.estra_current_redirect_count,
             "estra_stage_continue_count": self.estra_stage_continue_count,
             "estra_stage_redirect_count": self.estra_stage_redirect_count,
-            "estra_start_current_count": self.estra_current_continue_count + self.estra_current_redirect_count,
-            "estra_start_stage_count": self.estra_stage_continue_count + self.estra_stage_redirect_count,
-            "estra_intent_continue_count": self.estra_current_continue_count + self.estra_stage_continue_count,
-            "estra_intent_redirect_count": self.estra_current_redirect_count + self.estra_stage_redirect_count,
+            "estra_start_current_count": self.estra_current_continue_count
+            + self.estra_current_redirect_count,
+            "estra_start_stage_count": self.estra_stage_continue_count
+            + self.estra_stage_redirect_count,
+            "estra_intent_continue_count": self.estra_current_continue_count
+            + self.estra_stage_continue_count,
+            "estra_intent_redirect_count": self.estra_current_redirect_count
+            + self.estra_stage_redirect_count,
             "estra_switch_stage_count": self.estra_switch_stage_count,
             "estra_compact_count": self.estra_compact_count,
             "resource_jobs": self.resource_job_count,
@@ -291,16 +332,24 @@ class LHRStateMachineStore:
             "progress_last": dict(self.progress_last or {}),
             "agent_backoff_waits": self.agent_backoff_wait_count,
             "post_feedback_actions": self.post_feedback_action_count,
-            "post_feedback_action_counts": dict(sorted(self.post_feedback_action_counts.items())),
+            "post_feedback_action_counts": dict(
+                sorted(self.post_feedback_action_counts.items())
+            ),
             "post_feedback_violations": self.post_feedback_violation_count,
             "agent_backoff_wait_sec_total": round(self.agent_backoff_wait_sec_total, 3),
             "agent_backoff_wait_sec_max": round(self.agent_backoff_wait_sec_max, 3),
             "agent_backoff_wait_active": list(self.agent_backoff_wait_active.values()),
-            "agent_backoff_wake_reasons": dict(sorted(self.agent_backoff_wake_reasons.items())),
+            "agent_backoff_wake_reasons": dict(
+                sorted(self.agent_backoff_wake_reasons.items())
+            ),
             "resource_active_leases": list(self.resource_active_leases.values()),
             "resource_pending_gpu_jobs": list(self.resource_pending_gpu_jobs.values()),
-            "resource_gpu_pressure_states": _sorted_resource_pressure_states(self.resource_gpu_pressure_states),
-            "resource_gpu_util_recent": _gpu_util_recent_summary(self.resource_gpu_util_rows),
+            "resource_gpu_pressure_states": _sorted_resource_pressure_states(
+                self.resource_gpu_pressure_states
+            ),
+            "resource_gpu_util_recent": _gpu_util_recent_summary(
+                self.resource_gpu_util_rows
+            ),
             "resource_last_events": self.resource_last_events[-12:],
             "event_count": self.event_count,
             "ledger_filename": self.ledger_filename,
@@ -421,9 +470,23 @@ class LHRStateMachineStore:
         elif et == "estra_decision":
             self.estra_decision_count += 1
             action = str(payload.get("action") or "")
-            startpoint = str(payload.get("startpoint") or ("previous_stage" if action == "switch_stage" else "current_workspace"))
-            intent = str(payload.get("intent") or ("redirect" if action == "keep_but_redirect" else "continue"))
-            valid_estra_action = action in {"keep_current", "keep_but_redirect", "switch_stage"}
+            startpoint = str(
+                payload.get("startpoint")
+                or (
+                    "previous_stage"
+                    if action == "switch_stage"
+                    else "current_workspace"
+                )
+            )
+            intent = str(
+                payload.get("intent")
+                or ("redirect" if action == "keep_but_redirect" else "continue")
+            )
+            valid_estra_action = action in {
+                "keep_current",
+                "keep_but_redirect",
+                "switch_stage",
+            }
             if action == "keep_current":
                 self.estra_continue_count += 1
             elif action == "keep_but_redirect":
@@ -461,11 +524,17 @@ class LHRStateMachineStore:
             self.resource_gpu_queue_wait_count += 1
             job_id = str(payload.get("job_id") or event.get("task_id") or "")
             if job_id:
-                self._resource_gpu_queue_wait_started_at[job_id] = _float_or_zero(event.get("timestamp"))
+                self._resource_gpu_queue_wait_started_at[job_id] = _float_or_zero(
+                    event.get("timestamp")
+                )
         elif et == "resource_gpu_queue_timeout":
             self.resource_gpu_queue_timeout_count += 1
             job_id = str(payload.get("job_id") or event.get("task_id") or "")
-            started_at = self._resource_gpu_queue_wait_started_at.pop(job_id, 0.0) if job_id else 0.0
+            started_at = (
+                self._resource_gpu_queue_wait_started_at.pop(job_id, 0.0)
+                if job_id
+                else 0.0
+            )
             elapsed = _float_or_zero(payload.get("elapsed_sec"))
             if elapsed <= 0.0 and started_at > 0.0:
                 elapsed = _float_or_zero(event.get("timestamp")) - started_at
@@ -479,7 +548,11 @@ class LHRStateMachineStore:
         elif et == "resource_gpu_lease_acquired":
             self.resource_gpu_lease_acquired_count += 1
             job_id = str(payload.get("job_id") or event.get("task_id") or "")
-            started_at = self._resource_gpu_queue_wait_started_at.pop(job_id, 0.0) if job_id else 0.0
+            started_at = (
+                self._resource_gpu_queue_wait_started_at.pop(job_id, 0.0)
+                if job_id
+                else 0.0
+            )
             if started_at > 0.0:
                 self.resource_gpu_queue_wait_durations.append(
                     max(0.0, _float_or_zero(event.get("timestamp")) - started_at)
@@ -500,16 +573,22 @@ class LHRStateMachineStore:
         elif et == "agent_backoff_wait_finished":
             elapsed = _float_or_zero(payload.get("elapsed_sec"))
             self.agent_backoff_wait_sec_total += elapsed
-            self.agent_backoff_wait_sec_max = max(self.agent_backoff_wait_sec_max, elapsed)
+            self.agent_backoff_wait_sec_max = max(
+                self.agent_backoff_wait_sec_max, elapsed
+            )
             wake = str(payload.get("wake_reason") or "unknown")
-            self.agent_backoff_wake_reasons[wake] = self.agent_backoff_wake_reasons.get(wake, 0) + 1
+            self.agent_backoff_wake_reasons[wake] = (
+                self.agent_backoff_wake_reasons.get(wake, 0) + 1
+            )
             wait_id = str(payload.get("wait_id") or event.get("task_id") or "")
             if wait_id:
                 self.agent_backoff_wait_active.pop(wait_id, None)
         elif et == "post_feedback_action":
             self.post_feedback_action_count += 1
             action = str(payload.get("action") or "unknown")
-            self.post_feedback_action_counts[action] = self.post_feedback_action_counts.get(action, 0) + 1
+            self.post_feedback_action_counts[action] = (
+                self.post_feedback_action_counts.get(action, 0) + 1
+            )
             if bool(payload.get("violates_feedback")):
                 self.post_feedback_violation_count += 1
 
@@ -527,12 +606,15 @@ class LHRStateMachineStore:
             except (TypeError, ValueError):
                 current_metric = None
         lower_is_better = record.lower_is_better
-        better = current_metric is None or (metric < current_metric if lower_is_better else metric > current_metric)
+        better = current_metric is None or (
+            metric < current_metric if lower_is_better else metric > current_metric
+        )
         if not better:
             return
         now = _now_ts()
         self.global_best = {
-            "candidate_id": record.candidate_id or f"{self.worker_id}:{payload.get('stage_id') or ''}",
+            "candidate_id": record.candidate_id
+            or f"{self.worker_id}:{payload.get('stage_id') or ''}",
             "worker_id": record.worker_id or self.worker_id,
             "stage_id": record.stage_id or payload.get("stage_id") or "",
             "snapshot_id": payload.get("snapshot_id") or "",

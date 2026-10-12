@@ -220,7 +220,8 @@ def _fmt_csv_value(value: Any) -> str:
     if isinstance(value, bool):
         return "1" if value else "0"
     if isinstance(value, float):
-        return f"{value:.6f}" if value == value else ""
+        # CSV is research evidence, not a display label. Preserve close scores.
+        return repr(value) if value == value else ""
     return str(value)
 
 
