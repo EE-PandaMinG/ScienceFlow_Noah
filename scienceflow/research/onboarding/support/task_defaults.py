@@ -30,6 +30,16 @@ def may_defer_metric_direction(draft: LongResearchDraft) -> bool:
 
 
 def resolve_task_package(exp_id: str, task_text: str, *, workspace: Path | None = None) -> TaskPackageSpec | None:
+    # Canonical built-in IDs stay usable after exporting a same-name local task.
+    # Explicit local paths and numbered local selections still resolve below.
+    try:
+        words = shlex.split(exp_id.strip() or task_text.strip())
+    except ValueError:
+        words = []
+    if words:
+        builtin = find_task_package(words[0])
+        if builtin is not None:
+            return builtin
     if workspace is not None:
         from scienceflow.research.onboarding.library.catalog import resolve_local
         local = resolve_local(exp_id or task_text, workspace)

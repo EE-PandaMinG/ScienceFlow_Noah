@@ -2,12 +2,10 @@
 
 from types import SimpleNamespace
 
-import pytest
-
 from scienceflow.research.onboarding.library import catalog
 
 
-def test_local_name_wins_but_builtin_number_keeps_its_source(monkeypatch, tmp_path):
+def test_builtin_name_and_completion_stay_short_with_same_name_local_task(monkeypatch, tmp_path):
     local = tmp_path / 'task_library' / 'circle-packing-version'
     builtin = tmp_path / 'builtins' / 'circle-packing'
     monkeypatch.setattr(catalog, 'local_packages', lambda _: [
@@ -16,25 +14,43 @@ def test_local_name_wins_but_builtin_number_keeps_its_source(monkeypatch, tmp_pa
     monkeypatch.setattr(catalog, 'iter_task_packages', lambda: [
         SimpleNamespace(source_dir=builtin, task_id='circle-packing'),
     ])
-    _, choices = catalog.task_selection_text(tmp_path)
-    assert catalog.resolve_task_selection('circle-packing', choices) == str(local)
+    text, choices = catalog.task_selection_text(tmp_path)
+    assert len(choices) == 1
+    assert text.count('circle-packing') == 1
+    assert catalog.resolve_task_selection('circle-packing', choices) == 'circle-packing'
+    assert catalog.resolve_task_selection('1', choices) == 'circle-packing'
     assert catalog.resolve_task_selection('circle-packing workers=2', choices) == (
-        f'{local} workers=2'
+        'circle-packing workers=2'
     )
-    assert catalog.resolve_task_selection('2', choices) == str(builtin)
-    assert catalog.resolve_task_selection('2 workers=2', choices) == f'{builtin} workers=2'
-    assert catalog.resolve_task_selection(str(builtin), choices) == str(builtin)
+    assert catalog.task_choices(tmp_path) == (
+        ('circle-packing', 'circle-packing · Built-in'),
+    )
+    assert catalog.resolve_task_selection(str(local), choices) == str(local)
 
 
-def test_multiple_local_versions_show_usable_numbers_and_paths():
-    choices = (
-        catalog.TaskChoice('/tasks/packing-one', 'packing', 'Local'),
-        catalog.TaskChoice('/tasks/packing-two', 'packing', 'Local'),
-        catalog.TaskChoice('/builtin/packing', 'packing', 'Built-in'),
-    )
-    with pytest.raises(ValueError) as error:
-        catalog.resolve_task_selection('packing', choices)
-    assert '1. packing · Local · /tasks/packing-one' in str(error.value)
-    assert '2. packing · Local · /tasks/packing-two' in str(error.value)
-    assert catalog.resolve_task_selection('2', choices) == '/tasks/packing-two'
-    assert catalog.resolve_task_selection('/tasks/packing-one', choices) == '/tasks/packing-one'
+def test_catalog_deduplicates_local_entries_by_task_id(monkeypatch, tmp_path):
+    monkeypatch.setattr(catalog, 'iter_task_packages', lambda: [])
+    monkeypatch.setattr(catalog, 'local_packages', lambda _: [
+        SimpleNamespace(source_dir=tmp_path / 'one', task_id='packing'),
+        SimpleNamespace(source_dir=tmp_path / 'two', task_id='packing'),
+    ])
+    choices = catalog.discover_tasks(tmp_path)
+    assert len(choices) == 1
+    assert catalog.resolve_task_selection('packing', choices) == str(tmp_path / 'one')
+    assert catalog.task_choices(tmp_path) == (('packing', 'packing · Local'),)
+
+
+def test_builtin_resolution_is_not_shadowed_by_local_export(monkeypatch, tmp_path):
+    from scienceflow.research.onboarding.support import task_defaults
+
+    builtin = SimpleNamespace(task_id='circle-packing')
+    local = SimpleNamespace(task_id='circle-packing')
+    monkeypatch.setattr(task_defaults, 'find_task_package',
+                        lambda value: builtin if value == 'circle-packing' else None)
+    monkeypatch.setattr(catalog, 'resolve_local', lambda *_: local)
+    assert task_defaults.resolve_task_package(
+        '', 'circle-packing workers=2', workspace=tmp_path,
+    ) is builtin
+    assert task_defaults.resolve_task_package(
+        '', '/tasks/local-copy', workspace=tmp_path,
+    ) is local

@@ -18,7 +18,7 @@ TUI and Web monitor.
 </p>
 
 > [!IMPORTANT]
-> **Testing preview · 0.2.0b7.** Interfaces and workspace metadata may change before the stable release.
+> **Testing preview.** Interfaces and workspace metadata may change before the stable release.
 
 ## Quick start
 
@@ -66,29 +66,62 @@ python -m pip install scienceflow==0.2.0b7
 ```bash
 scienceflow config init
 scienceflow config path     # edit the generated private model registry
-scienceflow tui --workspace "$PWD/sf_workspace"
+scienceflow tui
 ```
 
-In the TUI, enter `/long-research` to choose a task or describe a new one.
-For example, prepare a CPU-only task without a dataset:
+<p align="justify">
+Chat normally in the TUI, or enter <code>/long-research</code> to configure and launch a
+managed task. Closing the TUI detaches from research without terminating its workers.
+</p>
+
+### Minimal TUI example
+
+<p align="justify">
+The built-in <code>circle-packing</code> example needs no dataset. After starting the TUI,
+complete these prompts in order:
+</p>
+
+**1 · Prepare the task**
 
 ```text
 /long-research circle-packing workers=2 cpu=16 gpu=cpu duration=1h
 ```
 
-Follow the preparation prompts, then enter `run` after preflight passes.
-Use `/tasks` to track progress and `/web` to open the browser monitor.
-Closing the TUI leaves managed research running.
+**2 · Start after preflight passes**
 
-For command-line use and session recovery:
-
-```bash
-scienceflow run circle-packing --workspace "$PWD/sf_workspace"
-scienceflow tui --workspace "$PWD/sf_workspace" --resume
+```text
+run
 ```
 
-See the [runtime guide](docs/public/RUNTIME_GUIDE.md) for workspace placement,
-task controls, shell behavior, and reports.
+<p align="justify">
+ScienceFlow runs preflight checks, starts two CPU workers, evaluates candidate solutions,
+and retains the best valid artifact under the workspace. Follow it with
+<code>/tasks</code> or <code>/status 1</code>.
+</p>
+
+<table width="100%">
+  <thead>
+    <tr>
+      <th width="500" align="center">Command</th>
+      <th width="500" align="center">Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td align="left"><code>/long-research DESCRIPTION</code></td><td align="left">Prepare and launch a research task.</td></tr>
+    <tr><td align="left"><code>/tasks</code>, <code>/status N</code></td><td align="left">List tasks or inspect results, model usage, and resources.</td></tr>
+    <tr><td align="left"><code>/stop N</code>, <code>/resume N</code>, <code>/attach N</code></td><td align="left">Control or follow a task.</td></tr>
+    <tr><td align="left"><code>/models</code></td><td align="left">Select the fixed chat model.</td></tr>
+    <tr><td align="left"><code>/web</code>, <code>/web stop</code></td><td align="left">Start or stop the workspace Web monitor.</td></tr>
+  </tbody>
+</table>
+
+Choose a saved chat session with:
+
+```bash
+scienceflow tui --resume
+```
+
+See the [runtime guide](docs/public/RUNTIME_GUIDE.md) for workspace and execution details.
 
 ## How it works
 
@@ -162,7 +195,7 @@ git clone --branch preview https://github.com/science-learner/ScienceFlow.git
 cd ScienceFlow
 uv sync --python 3.12 --group dev
 uv run scienceflow config init
-uv run scienceflow tui --workspace "$PWD/sf_workspace"
+uv run scienceflow tui
 ```
 
 <p align="justify">

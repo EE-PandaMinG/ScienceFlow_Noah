@@ -77,17 +77,13 @@ python -m pip install scienceflow==0.2.0b7
 ```bash
 scienceflow config init
 scienceflow config path
-scienceflow tui --workspace "$PWD/sf_workspace"
+scienceflow tui
 ```
 
 默认配置位于 `~/.config/scienceflow/models.json`，权限为 `600`；API Key 不会复制到
 manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIGURATION.md)，也可参考
 [脱敏的多端点配置示例](../examples/models.example.json)。工作区和恢复选项可运行
 `scienceflow tui --help` 查看。进入 TUI 后，使用 `/long-research` 准备并启动托管研究任务。
-
-在 TUI 中输入 `/long-research` 选择任务或描述新任务，检查通过后输入 `run`。
-使用 `/tasks` 查看进度，`/web` 打开网页监控。工作目录、恢复、shell 与报告详见
-[运行指南](RUNTIME_GUIDE.md)。
 
 ## 最新动态
 
@@ -118,7 +114,7 @@ manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIG
 cd ScienceFlow
 uv sync --python 3.12 --group dev
 uv run scienceflow config init
-uv run scienceflow tui --workspace "$PWD/sf_workspace"
+uv run scienceflow tui
 ```
 
 默认命令安装 Light 开发环境。只有需要 ML、GPU、MLE-bench 和 scientific-design 依赖时，
@@ -133,8 +129,28 @@ ScienceFlow 在进程内使用 InquiryCraft `0.9.2` 作为通用 Agent Runtime�
 
 ## 文档
 
-[文档索引](../README.md) · [架构总览](scienceflow/index.html) · [可恢复状态与 LNR](scienceflow/module-lnr.html) · [证据感知执行控制](scienceflow/module-resource.html) · [新增优化任务](scienceflow/module-opt-solver-onboarding.html) · [当前规划](../plans/current/) · [SciModelingBench](../../tasks/sci_modeling_bench/README.md)
+[文档索引](../README.md) · [运行指南](RUNTIME_GUIDE.md) · [架构总览](scienceflow/index.html) · [可恢复状态与 LNR](scienceflow/module-lnr.html) · [证据感知执行控制](scienceflow/module-resource.html) · [新增优化任务](scienceflow/module-opt-solver-onboarding.html) · [当前规划](../plans/current/) · [SciModelingBench](../../tasks/sci_modeling_bench/README.md)
 
 机器学习工程、科学建模和数学优化任务共享同一套 Stage Gate 与 Evaluator contract。
 配置字段、仓库职责边界、任务 contract 和 Benchmark 细节统一放在上述文档中，不在 README
 重复展开。
+
+## 运行注意
+
+- MLE-bench 任务需要数据根、任务 `exp_id`、`submission.csv` contract 对齐。
+- 不同任务 profile 的旧 workspace 不应混用 resume，否则可能继承错误 prompt、dataset 或 artifact 维度。
+- `stopped_by_user` 表示人为停止的可恢复终态，不等价于失败；后续 resume 应从 `state.json` 的累计预算和 workspace stage 继续。
+- 使用 `/tasks` 查看任务，`/status N` 查看任务结果、模型用量和资源情况。
+
+## 验证
+
+```bash
+.venv/bin/pytest -q \
+  tests/test_inquirycraft_dependency_boundary.py \
+  tests/test_inquirycraft_cli_composition.py \
+  tests/test_long_research_interaction.py
+```
+
+发布 workflow 仅接受与项目版本一致的 tag；它会构建并检查 wheel 与源码包，在干净环境中
+安装 wheel，运行公共依赖契约，再通过 PyPI Trusted Publishing 上传。完整回归命令为
+`uv run --locked pytest -q`。ML、GPU、MLE-bench 与 scientific-design 测试需要对应的可选依赖。

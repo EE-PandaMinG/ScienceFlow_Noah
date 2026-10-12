@@ -66,22 +66,25 @@ def resolve_local(text, workspace):
 
 def task_choices(workspace):
     return tuple(
-        (shlex.quote(choice.value), f"{choice.task_id} · {choice.source}")
+        (shlex.quote(choice.task_id), f"{choice.task_id} · {choice.source}")
         for choice in discover_tasks(workspace)
     )
 
 
 def discover_tasks(workspace):
-    """Return deterministic local-first choices for every user-facing entry point."""
+    """Return one entry per task ID; built-in IDs keep their canonical target."""
     local = [
         TaskChoice(str(spec.source_dir), spec.task_id, "Local")
         for spec in local_packages(workspace)
     ]
     builtin = [
-        TaskChoice(str(spec.source_dir), spec.task_id, "Built-in")
+        TaskChoice(spec.task_id, spec.task_id, "Built-in")
         for spec in iter_task_packages()
     ]
-    return tuple(local + builtin)
+    unique = {choice.task_id: choice for choice in builtin}
+    for choice in local:
+        unique.setdefault(choice.task_id, choice)
+    return tuple(unique.values())
 
 
 def task_selection_text(workspace):
@@ -115,21 +118,10 @@ def resolve_task_selection(value, choices):
             selected = choices[index - 1].value
             return f"{shlex.quote(selected)} {suffix}".strip() if suffix else selected
         raise ValueError(f"Task number must be between 0 and {len(choices)}.")
-    exact = [choice for choice in choices if head in {choice.task_id, choice.value}]
-    local = [choice for choice in exact if choice.source == "Local"]
-    if local:
-        exact = local
-    if len(exact) == 1:
-        selected = exact[0].value
+    selected = next(
+        (choice.value for choice in choices if head in {choice.task_id, choice.value}),
+        None,
+    )
+    if selected is not None:
         return f"{shlex.quote(selected)} {suffix}".strip() if suffix else selected
-    if len(exact) > 1:
-        options = "\n".join(
-            f"  {index}. {choice.task_id} · {choice.source} · {choice.value}"
-            for index, choice in enumerate(choices, 1)
-            if choice in exact
-        )
-        raise ValueError(
-            "Multiple local task versions use that name; choose a number or path:\n"
-            + options
-        )
     return answer
