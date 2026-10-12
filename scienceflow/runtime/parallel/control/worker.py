@@ -27,22 +27,14 @@ def _input_data_paths(record: dict) -> tuple[str, ...]:
         defaults = manifest.get("defaults")
         if isinstance(defaults, dict):
             values.append(
-                str(
-                    defaults.get("input_data_dir")
-                    or defaults.get("data_dir")
-                    or ""
-                )
+                str(defaults.get("input_data_dir") or defaults.get("data_dir") or "")
             )
         tasks = manifest.get("tasks")
         if isinstance(tasks, list):
             for task in tasks:
                 if isinstance(task, dict):
                     values.append(
-                        str(
-                            task.get("input_data_dir")
-                            or task.get("data_dir")
-                            or ""
-                        )
+                        str(task.get("input_data_dir") or task.get("data_dir") or "")
                     )
     return tuple(dict.fromkeys(value.strip() for value in values if value.strip()))
 
@@ -68,66 +60,104 @@ async def supervise(run_id: str, token: str) -> None:
         loop.add_signal_handler(sig, current.cancel)
     with locked(directory):
         record = read_record(directory)
-        if record['launch_token'] != token or record.get('pid') != os.getpid():
+        if record["launch_token"] != token or record.get("pid") != os.getpid():
             return
-        if record['status'] == 'stopping':
+        if record["status"] == "stopping":
             current.cancel()
         else:
-            record['status'] = 'running'
+            record["status"] = "running"
         write_record(directory, record)
-    status, error = 'completed', None
+    status = record.get("research_status", "completed")
+    error = (
+        record.get("research_error")
+        if record.get("recovery_mode") == "report_only"
+        else None
+    )
     try:
-        summary = await run_manifest(record['manifest'])
-        print(summary.text, flush=True)
-        if any(r.status not in {'success', 'skipped'} for r in summary.results):
-            status = 'failed'
+        if record.get("recovery_mode") != "report_only":
+            summary = await run_manifest(record["manifest"])
+            print(summary.text, flush=True)
+            status = "completed"
+            if any(r.status not in {"success", "skipped"} for r in summary.results):
+                status = "failed"
     except asyncio.CancelledError:
-        status = 'stopped'
+        status = "stopped"
     except Exception as exc:
-        status, error = 'failed', type(exc).__name__
-        print(f'Supervisor failed: {type(exc).__name__}', flush=True)
+        status, error = "failed", type(exc).__name__
+        print(f"Supervisor failed: {type(exc).__name__}", flush=True)
     finally:
+        from .reporting import finalize_reports, report_budget
+
         with locked(directory):
             record = read_record(directory)
-            if record['launch_token'] == token:
-                record.update(status=status, finished_at=time.time(), error=error)
-                write_record(directory, record)
-
-        if status == 'completed':
+            if record["launch_token"] != token:
+                return
+            now = time.time()
+            research_finished = (
+                record.get("research_finished_at", now)
+                if record.get("recovery_mode") == "report_only"
+                else now
+            )
+            record.update(
+                status="running",
+                phase="reporting",
+                research_status=status,
+                research_error=error,
+                research_finished_at=research_finished,
+                error=error,
+                report_started_at=now,
+                report_status="generating",
+                report_budget_sec=report_budget(record.get("manifest_payload") or {}),
+                resource_claims={"cpu": [], "gpu": []},
+            )
+            write_record(directory, record)
+        print(
+            f"Reporting: separate budget {record['report_budget_sec']:g}s", flush=True
+        )
+        try:
+            reports, timed_out = await finalize_reports(record)
+        except Exception as exc:
+            reports, timed_out = [], False
+            error = f"Report generation failed: {type(exc).__name__}"
+        ready = bool(reports) and all(r.get("status") == "ready" for r in reports)
+        if not ready:
+            error = error or "Report generation failed; resume to retry reporting."
+        with locked(directory):
+            current_record = read_record(directory)
+            if current_record["launch_token"] != token:
+                return
+            current_record.update(
+                status=("failed" if status == "completed" and not ready else status),
+                phase="finished",
+                finished_at=time.time(),
+                error=error,
+                report_status="ready" if ready else "generation_failed",
+                report_timed_out=timed_out,
+                report_finished_at=time.time(),
+                final_reports=[
+                    {k: v for k, v in r.items() if k != "task_root"} for r in reports
+                ],
+            )
+            write_record(directory, current_record)
+        print("Final report: " + current_record["report_status"], flush=True)
+        await asyncio.to_thread(_record_terminal_storage, current_record)
+        if status == "completed" and ready:
             from scienceflow.research.onboarding.library.export import export_success
+
             try:
-                registration = await asyncio.to_thread(export_success, record)
+                registration = await asyncio.to_thread(export_success, current_record)
             except Exception as exc:
-                # Export is ancillary; it cannot turn completed research into a failure.
-                registration = {'status': 'deferred', 'reason': f'Task export failed: {type(exc).__name__}'}
+                registration = {
+                    "status": "deferred",
+                    "reason": f"Task export failed: {type(exc).__name__}",
+                }
             with locked(directory):
                 current_record = read_record(directory)
-                if current_record['launch_token'] == token:
-                    current_record['task_registration'] = registration
+                if current_record["launch_token"] == token:
+                    current_record["task_registration"] = registration
                     write_record(directory, current_record)
-            print('Task registration: ' + registration['status'], flush=True)
-
-        from scienceflow.research.reporting import generate_run_reports
-
-        with locked(directory):
-            current_record = read_record(directory)
-        reports = await asyncio.to_thread(generate_run_reports, current_record)
-        await asyncio.to_thread(_record_terminal_storage, current_record)
-        public_reports = [
-            {key: value for key, value in report.items() if key != 'task_root'}
-            for report in reports
-        ]
-        with locked(directory):
-            current_record = read_record(directory)
-            if current_record['launch_token'] == token:
-                current_record['final_reports'] = public_reports
-                write_record(directory, current_record)
-        print(
-            'Final report: '
-            + ', '.join(report.get('status', 'unknown') for report in reports),
-            flush=True,
-        )
+            print("Task registration: " + registration["status"], flush=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(supervise(sys.argv[1], sys.argv[2]))

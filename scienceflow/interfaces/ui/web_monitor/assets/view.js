@@ -66,9 +66,6 @@ function renderReport(task, key, report) {
     reportDownload(toolbar, key, "md", "Download Markdown");
   if (report.formats?.["report.html"])
     reportDownload(toolbar, key, "html", "Download HTML");
-  if (report.formats?.["report.pdf"])
-    reportDownload(toolbar, key, "pdf", "Download PDF");
-  else add(toolbar, "span", "PDF unavailable", "muted");
   add(
     toolbar,
     "small",
@@ -81,9 +78,21 @@ function renderReport(task, key, report) {
   const frame = add(sectionNode, "iframe", undefined, "report-frame");
   frame.title = `${task.name} final report`;
   frame.src = `${base}task/${key}/report.html`;
-  frame.setAttribute("sandbox", "allow-same-origin");
+  frame.setAttribute("sandbox", "allow-same-origin allow-modals");
+  const pdf = add(toolbar, "button", "Save PDF", "download-button");
+  pdf.disabled = true;
+  const hint = add(toolbar, "small", "Opens print dialog · choose Save as PDF");
+  pdf.onclick = () => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch {
+      hint.textContent = "Printing unavailable. Download HTML and print it from your browser.";
+    }
+  };
   frame.onload = () => {
     try {
+      pdf.disabled = !frame.contentDocument.querySelector("article");
       frame.style.height = `${Math.max(720, frame.contentDocument.documentElement.scrollHeight + 24)}px`;
     } catch {}
   };

@@ -3,31 +3,29 @@
 from __future__ import annotations
 
 import json
-import os
-import shutil
-import uuid
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+
+from scienceflow.runtime.parallel.location.local import validate_record_location
 
 from .analysis import enrich_report
 from .charts import report_svgs
 from .collect import collect_report
 from .html import render_html
 from .markdown import render_markdown
-from .pdf import render_pdf
+from .storage.publication import publish_bundle
 
-_FORMATS = ("report.md", "report.html", "report.pdf")
-
-
-def _replace(source: Path, target: Path) -> None:
-    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
-    shutil.copyfile(source, temporary)
-    os.replace(temporary, target)
+_FORMATS = ("report.md", "report.html")
 
 
 def read_report_manifest(root: str | Path) -> dict[str, Any] | None:
-    root = Path(root).expanduser().resolve()
+    root = Path(root).expanduser().absolute()
+    if root.resolve() != root or not (root / "report.json").resolve().is_relative_to(
+        root
+    ):
+        return None
     try:
         value = json.loads((root / "report.json").read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
@@ -38,20 +36,38 @@ def read_report_manifest(root: str | Path) -> dict[str, Any] | None:
     if not isinstance(formats, dict):
         return None
     value["formats"] = {
-        name: bool(formats.get(name) and (root / name).is_file()) for name in _FORMATS
+        name: bool(
+            formats.get(name)
+            and (root / name).resolve().is_relative_to(root)
+            and (root / name).is_file()
+        )
+        for name in _FORMATS
     }
+    value.pop("pdf_error", None)
+    if value.get("status") in {"ready", "partial"}:
+        value["status"] = "ready" if all(value["formats"].values()) else "partial"
     return value
 
 
-def generate_task_report(record: dict[str, Any], root: str | Path) -> dict[str, Any]:
-    root = Path(root).expanduser().resolve()
-    if not root.is_dir():
-        raise ValueError(f"Task root does not exist: {root}")
-    report = enrich_report(
-        record,
-        collect_report(record, root),
-        cache_path=root / "task_logs/report_analysis.json",
-    )
+def generate_task_report(
+    record: dict[str, Any], root: str | Path, *, enrich: bool = True
+) -> dict[str, Any]:
+    root = Path(root).expanduser().absolute()
+    validate_record_location(dict(record, task_roots=[str(root)]))
+    if root.resolve() != root:
+        raise ValueError("Report task root has moved or contains a symlink")
+    # A launch failure can precede worker workspace creation. Preserve a report
+    # at the authoritative task root even when no research artifacts exist yet.
+    root.mkdir(parents=True, exist_ok=True)
+    report = collect_report(record, root)
+    if enrich:
+        report = enrich_report(
+            record, report, cache_path=root / "task_logs/report_analysis.json"
+        )
+    else:
+        report = replace(
+            report, report_agent={"status": "local_evidence_only", "model": ""}
+        )
     with TemporaryDirectory(prefix=".report-", dir=root) as temporary_name:
         temporary = Path(temporary_name)
         assets = temporary / "report_assets"
@@ -59,24 +75,16 @@ def generate_task_report(record: dict[str, Any], root: str | Path) -> dict[str, 
         svgs = report_svgs(report)
         for name, content in svgs.items():
             (assets / name).write_text(content, encoding="utf-8")
-        (temporary / "report.md").write_text(render_markdown(report), encoding="utf-8")
+        markdown = render_markdown(report)
+        (temporary / "report.md").write_text(markdown, encoding="utf-8")
         (temporary / "report.html").write_text(
-            render_html(report, svgs), encoding="utf-8"
+            render_html(markdown, svgs), encoding="utf-8"
         )
-        pdf_error = ""
-        try:
-            render_pdf(report, temporary / "report.pdf")
-        except (ImportError, OSError, ValueError, RuntimeError) as exc:
-            pdf_error = f"{type(exc).__name__}: {exc}"
-        formats = {
-            "report.md": True,
-            "report.html": True,
-            "report.pdf": (temporary / "report.pdf").is_file(),
-        }
+        formats = {name: True for name in _FORMATS}
         manifest = {
             "schema_version": 1,
             "document_schema_version": report.schema_version,
-            "status": "ready" if formats["report.pdf"] else "partial",
+            "status": "ready",
             "generated_at_utc": report.generated_at_utc,
             "run_id": report.run_id,
             "attempt": report.attempt,
@@ -84,35 +92,24 @@ def generate_task_report(record: dict[str, Any], root: str | Path) -> dict[str, 
             "report_agent": report.report_agent,
             "related_work_count": len(report.related_works),
             "formats": formats,
-            "pdf_error": pdf_error,
         }
         (temporary / "report.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        target_assets = root / "report_assets"
-        target_assets.mkdir(exist_ok=True)
-        for name in svgs:
-            _replace(assets / name, target_assets / name)
-        for name in _FORMATS:
-            source = temporary / name
-            if source.is_file():
-                _replace(source, root / name)
-            elif (root / name).is_file():
-                (root / name).unlink()
         archive = root / "task_logs/reports" / f"attempt-{report.attempt:03d}"
-        if not archive.exists():
-            archive.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(temporary, archive)
-        _replace(temporary / "report.json", root / "report.json")
+        publish_bundle(temporary, archive)
+        publish_bundle(temporary, root)
     return manifest
 
 
-def generate_run_reports(record: dict[str, Any]) -> list[dict[str, Any]]:
+def generate_run_reports(
+    record: dict[str, Any], *, enrich: bool = True
+) -> list[dict[str, Any]]:
     results = []
     for root in record.get("task_roots") or ():
         try:
-            result = generate_task_report(record, root)
+            result = generate_task_report(record, root, enrich=enrich)
         # One malformed task root must not suppress reports for sibling tasks.
         except Exception as exc:  # noqa: BLE001
             result = {

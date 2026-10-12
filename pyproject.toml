@@ -44,7 +44,7 @@ dependencies = [
     # namespace in site-packages would cause ImportError: gen
     "tornado>=6.4",
     # Deterministic local PDF reports without a browser or external command.
-    "reportlab>=4.2,<5",
+    "markdown-it-py>=3,<5",
 ]
 
 [project.urls]

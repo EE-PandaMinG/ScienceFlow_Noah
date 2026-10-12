@@ -59,7 +59,7 @@ def test_failed_task_generates_all_formats_archive_and_redacts_secrets(tmp_path)
     assert result["status"] == "ready"
     assert result["task_status"] == "failed"
     assert all(result["formats"].values())
-    assert (root / "report.pdf").read_bytes().startswith(b"%PDF-")
+    assert not (root / "report.pdf").exists()
     markdown = (root / "report.md").read_text(encoding="utf-8")
     html = (root / "report.html").read_text(encoding="utf-8")
     assert "Bearer <redacted>" in markdown
@@ -101,13 +101,13 @@ def test_manifest_only_advertises_files_that_still_exist(tmp_path):
     root = tmp_path / "task"
     root.mkdir()
     generate_task_report(_record(root), root)
-    (root / "report.pdf").unlink()
+    (root / "report.html").unlink()
 
     result = read_report_manifest(root)
 
     assert result is not None
     assert result["formats"]["report.md"] is True
-    assert result["formats"]["report.pdf"] is False
+    assert result["formats"]["report.html"] is False
 
 
 def test_scientific_report_collects_task_finalists_and_artifact_figure(tmp_path):
@@ -399,3 +399,70 @@ def test_successful_report_analysis_is_reused_for_same_evidence(
     assert second.research_analysis == {"summary": "cached analysis"}
     assert len(calls) == 1
     assert cache.stat().st_mode & 0o777 == 0o600
+
+
+def test_report_generation_does_not_import_pdf_engine(tmp_path, monkeypatch):
+    import builtins
+
+    original = builtins.__import__
+
+    def guarded(name, *args, **kwargs):
+        if name.startswith("reportlab"):
+            raise AssertionError("Report generation must not load a PDF engine")
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded)
+    root = tmp_path / "task"
+    root.mkdir()
+    result = generate_task_report(_record(root), root)
+    assert result["status"] == "ready"
+    assert result["formats"] == {"report.md": True, "report.html": True}
+    assert "pdf_error" not in result
+    assert not (root / "report.pdf").exists()
+
+
+def test_html_uses_markdown_and_embeds_only_generated_figures():
+    from scienceflow.research.reporting.html import render_html
+
+    markdown = (
+        "# Unique Markdown heading\n\n"
+        "| A | B |\n| --- | --- |\n| one | two |\n\n"
+        "![Metric](report_assets/metric.svg)\n\n"
+        "![External](https://example.com/tracker.png)\n\n"
+        "<script>alert(1)</script>\n\n[x](javascript:alert(1))"
+    )
+    html = render_html(
+        markdown, {"metric.svg": '<svg xmlns="http://www.w3.org/2000/svg"/>'}
+    )
+    assert "<h1>Unique Markdown heading</h1>" in html
+    assert "<table>" in html
+    assert "data:image/svg+xml;base64," in html
+    assert "tracker.png" not in html
+    assert "<script>" not in html
+    assert 'href="javascript:' not in html
+    assert "@media print" in html
+
+
+def test_legacy_pdf_failure_does_not_downgrade_available_report(tmp_path):
+    (tmp_path / "report.md").write_text("# Report")
+    (tmp_path / "report.html").write_text("<article>Report</article>")
+    (tmp_path / "report.pdf").write_bytes(b"old PDF")
+    (tmp_path / "report.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "status": "partial",
+                "formats": {
+                    "report.md": True,
+                    "report.html": True,
+                    "report.pdf": False,
+                },
+                "pdf_error": "No module named reportlab",
+            }
+        )
+    )
+    result = read_report_manifest(tmp_path)
+    assert result["status"] == "ready"
+    assert result["formats"] == {"report.md": True, "report.html": True}
+    assert "pdf_error" not in result
+    assert (tmp_path / "report.pdf").read_bytes() == b"old PDF"

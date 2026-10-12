@@ -175,3 +175,16 @@ ScienceFlow 在进程内使用 InquiryCraft `0.9.1` 作为通用 Agent Runtime�
 
 TUI 聊天和任务准备默认可执行 shell（当前用户权限，无操作系统沙箱），无默认超时。
 Esc 取消当前聊天，退出 TUI 回收前台命令及子进程；长程 worker 的执行控制保持独立。
+
+### 任务收尾与报告
+
+研究结束、失败或停止后，托管任务会进入独立的报告阶段，默认预算 300 秒，
+不占研究预算；提前完成即结束。manifest 顶层 `report_budget_sec` 可设置该预算。
+报告先生成本地证据版，再在剩余预算内补充模型分析。任务目录包含
+`report.md`、`report.html`、`report.json` 和 `report_assets/`，各次运行归档位于
+`task_logs/reports/attempt-NNN/`。Web 打开 HTML 后可通过浏览器打印保存 PDF，
+不安装服务端 PDF 引擎。
+
+报告生成失败时，对已结束的研究执行原有 `resume` 只重试报告，不重新探索、
+不占用研究 CPU/GPU 配额；仍有研究预算的暂停任务继续原有恢复流程。报告发布使用
+原子版本切换，中断时保留上一个完整版本；历史版本暂不自动清理。

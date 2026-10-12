@@ -275,13 +275,20 @@ def test_supervisor_registers_completed_task_without_tui(tmp_path, monkeypatch):
     import os
 
     from scienceflow.runtime.parallel.control import worker
-    from scienceflow.runtime.parallel.control.registry import read_record, write_record
+    from scienceflow.runtime.parallel.control.registry import (
+        read_record,
+        run_dir,
+        write_record,
+    )
 
     record = experiment(tmp_path)
-    record.update(launch_token="test-token", pid=os.getpid(), manifest="synthetic")
-    directory = tmp_path / "registry"
+    record.update(
+        launch_token="test-token", pid=os.getpid(), manifest="synthetic", attempt=1
+    )
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    record["manifest_payload"] = {"report_budget_sec": 5}
+    directory = run_dir(record["run_id"])
     write_record(directory, record)
-    monkeypatch.setattr(worker, "run_dir", lambda run_id: directory)
 
     async def synthetic(manifest):
         return SimpleNamespace(text="done", results=[])
@@ -301,20 +308,27 @@ def test_supervisor_registers_completed_task_without_tui(tmp_path, monkeypatch):
     task_root = Path(record["task_roots"][0])
     assert (task_root / "report.md").is_file()
     assert (task_root / "report.html").is_file()
-    assert (task_root / "report.pdf").is_file()
+    assert not (task_root / "report.pdf").exists()
 
 
 def test_supervisor_generates_report_for_failed_task(tmp_path, monkeypatch):
     import os
 
     from scienceflow.runtime.parallel.control import worker
-    from scienceflow.runtime.parallel.control.registry import read_record, write_record
+    from scienceflow.runtime.parallel.control.registry import (
+        read_record,
+        run_dir,
+        write_record,
+    )
 
     record = experiment(tmp_path)
-    record.update(launch_token="test-token", pid=os.getpid(), manifest="synthetic")
-    directory = tmp_path / "registry"
+    record.update(
+        launch_token="test-token", pid=os.getpid(), manifest="synthetic", attempt=1
+    )
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    record["manifest_payload"] = {"report_budget_sec": 5}
+    directory = run_dir(record["run_id"])
     write_record(directory, record)
-    monkeypatch.setattr(worker, "run_dir", lambda run_id: directory)
 
     async def synthetic(manifest):
         return SimpleNamespace(
