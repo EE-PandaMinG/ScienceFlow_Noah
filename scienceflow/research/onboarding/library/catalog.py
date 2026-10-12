@@ -78,7 +78,7 @@ def discover_tasks(workspace):
         for spec in local_packages(workspace)
     ]
     builtin = [
-        TaskChoice(spec.task_id, spec.task_id, "Built-in")
+        TaskChoice(str(spec.source_dir), spec.task_id, "Built-in")
         for spec in iter_task_packages()
     ]
     return tuple(local + builtin)
@@ -116,9 +116,20 @@ def resolve_task_selection(value, choices):
             return f"{shlex.quote(selected)} {suffix}".strip() if suffix else selected
         raise ValueError(f"Task number must be between 0 and {len(choices)}.")
     exact = [choice for choice in choices if head in {choice.task_id, choice.value}]
+    local = [choice for choice in exact if choice.source == "Local"]
+    if local:
+        exact = local
     if len(exact) == 1:
         selected = exact[0].value
         return f"{shlex.quote(selected)} {suffix}".strip() if suffix else selected
     if len(exact) > 1:
-        raise ValueError("Multiple tasks use that name; choose its numbered entry.")
+        options = "\n".join(
+            f"  {index}. {choice.task_id} · {choice.source} · {choice.value}"
+            for index, choice in enumerate(choices, 1)
+            if choice in exact
+        )
+        raise ValueError(
+            "Multiple local task versions use that name; choose a number or path:\n"
+            + options
+        )
     return answer
