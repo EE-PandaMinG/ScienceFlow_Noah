@@ -39,7 +39,7 @@ ScienceFlow 在机器学习、科学建模和数学优化任务上持续开展�
 Python 依赖会保持隔离，同时 `scienceflow` 命令可以在任意目录直接使用：
 
 ```bash
-pipx install scienceflow==0.2.0b6
+pipx install scienceflow==0.2.0b7
 scienceflow --help
 ```
 
@@ -51,13 +51,13 @@ scienceflow --help
 ```bash
 conda create -n scienceflow python=3.12 -y
 conda activate scienceflow
-python -m pip install scienceflow==0.2.0b6
+python -m pip install scienceflow==0.2.0b7
 ```
 
 **uv**
 
 ```bash
-uv tool install scienceflow==0.2.0b6
+uv tool install scienceflow==0.2.0b7
 ```
 
 **Python 虚拟环境**
@@ -65,7 +65,7 @@ uv tool install scienceflow==0.2.0b6
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install scienceflow==0.2.0b6
+python -m pip install scienceflow==0.2.0b7
 ```
 
 </details>
@@ -97,7 +97,7 @@ TUI 中输入 `/long-research circle-packing workspace=/data/experiments`，也�
 相对数据路径均以管理工作区解释；不配置时保留现有默认目录布局。
 `--execution-root` 不可与 `--manifest` 混用。准备后要换位置，请 `/cancel` 后重新发起任务；
 恢复始终使用原目录。准备工具使用独立任务目录，shell 默认可用；普通聊天的目录和
-session 不变。本阶段不支持 SSH，开发环境需同时加载匹配的本地 InquiryCraft 源码。
+session 不变。本阶段不支持 SSH；宿主接口由锁定的 InquiryCraft 0.9.2 提供。
 
 ## 最新动态
 
@@ -135,10 +135,10 @@ uv run scienceflow tui --workspace "$PWD/sf_workspace"
 才使用 `uv sync --extra full --group dev`。发布包的 Full profile 应在虚拟环境内安装：
 
 ```bash
-python -m pip install "scienceflow[full]"==0.2.0b6
+python -m pip install "scienceflow[full]"==0.2.0b7
 ```
 
-ScienceFlow 在进程内使用 InquiryCraft `0.9.1` 作为通用 Agent Runtime，不需要另起服务。
+ScienceFlow 在进程内使用 InquiryCraft `0.9.2` 作为通用 Agent Runtime，不需要另起服务。
 源码环境与 PyPI 安装使用相同的 CLI 和用户私有模型注册表。
 
 ## 文档

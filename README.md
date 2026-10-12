@@ -100,7 +100,7 @@ be combined with `--manifest`. Cancel preparation and start a new task to change
 its directory; resume always reuses the recorded directory. SSH execution is not
 implemented in this phase. Preparation uses a separate runtime in the task
 directory, with shell available without changing the chat session.
-This development feature requires the matching local InquiryCraft host source.
+These host capabilities are included in the pinned InquiryCraft 0.9.2 dependency.
 
 CLI and TUI starts and resumes share the same CPU/GPU reservation checks.
 With `--manifest`, set workers, duration, CPU/GPU, data and configuration in the

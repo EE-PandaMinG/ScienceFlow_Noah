@@ -10,6 +10,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - name: Verify committed dependency resolution
+        run: uv lock --check
       - name: Install CPU-only control plane from project metadata
         run: |
           python -m pip install --upgrade pip
@@ -67,6 +70,7 @@ jobs:
           tests/test_report_lifecycle.py
           tests/test_final_report.py
           tests/test_task_library.py
+          tests/test_task_selection_collision.py
           tests/test_web_monitor.py
           tests/test_multi_worker_cancellation.py
           tests/test_process_runtime.py
