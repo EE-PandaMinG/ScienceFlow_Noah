@@ -85,6 +85,20 @@ manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIG
 [脱敏的多端点配置示例](../examples/models.example.json)。工作区和恢复选项可运行
 `scienceflow tui --help` 查看。进入 TUI 后，使用 `/long-research` 准备并启动托管研究任务。
 
+聊天和任务列表保留在启动工作区；单个任务可指定另一处**本机**执行根目录：
+
+```bash
+scienceflow run circle-packing --workspace "$PWD/sf_workspace" --execution-root /data/experiments
+```
+
+TUI 中输入 `/long-research circle-packing workspace=/data/experiments`，也可用自然语言
+说明执行目录。显式参数不调用模型解析目录；自然语言先进行禁用工具的位置提取，再分配目录。
+每次指定根目录都会创建独立任务子目录，不覆盖已有实验，不复制数据集。相对执行根目录、
+相对数据路径均以管理工作区解释；不配置时保留现有默认目录布局。
+`--execution-root` 不可与 `--manifest` 混用。准备后要换位置，请 `/cancel` 后重新发起任务；
+恢复始终使用原目录。准备工具使用独立任务目录，shell 默认可用；普通聊天的目录和
+session 不变。本阶段不支持 SSH，开发环境需同时加载匹配的本地 InquiryCraft 源码。
+
 ## 最新动态
 
 - **[2026-09]** 测试预览版已发布至 `preview` 分支，用于集成测试与反馈。
@@ -124,7 +138,7 @@ uv run scienceflow tui --workspace "$PWD/sf_workspace"
 python -m pip install "scienceflow[full]"==0.2.0b6
 ```
 
-ScienceFlow 在进程内使用 InquiryCraft `0.9.0` 作为通用 Agent Runtime，不需要另起服务。
+ScienceFlow 在进程内使用 InquiryCraft `0.9.1` 作为通用 Agent Runtime，不需要另起服务。
 源码环境与 PyPI 安装使用相同的 CLI 和用户私有模型注册表。
 
 ## 文档
@@ -139,8 +153,12 @@ ScienceFlow 在进程内使用 InquiryCraft `0.9.0` 作为通用 Agent Runtime�
 
 - MLE-bench 任务需要数据根、任务 `exp_id`、`submission.csv` contract 对齐。
 - 不同任务 profile 的旧 workspace 不应混用 resume，否则可能继承错误 prompt、dataset 或 artifact 维度。
+- CLI 与 TUI 的启动、恢复统一执行 CPU/GPU 资源预留检查。使用 `--manifest` 时，worker、时间、CPU/GPU、数据和配置在 manifest 中设置，混用对应 CLI 参数会明确报错。
+- TUI 通过轻量注册表变更感知其他终端的启动和恢复，不重新扫描已结束实验目录。
 - `stopped_by_user` 表示人为停止的可恢复终态，不等价于失败；后续 resume 应从 `state.json` 的累计预算和 workspace stage 继续。
-- `/resources` 将每个 `starting` 或 `running` task 显示为一行；`stopping` task 不显示，但在进程真正释放资源前仍会从 `Available` 中扣除。
+- TUI 底部资源栏显示本机资源概况；任务卡和 `/status N` 展示任务及 worker 的资源与用量。
+- `scienceflow tui --resume` 恢复本工作区聊天会话及简短研究事件；TUI 内 `/resume N` 恢复编号为 N 的研究任务。`/status` 等查询只即时显示，不写入研究事件历史。
+- 普通聊天只在当前模型请求中读取任务面板的简短状态摘要，不把这份摘要写入聊天记录或影响研究 worker。
 
 ## 验证
 
@@ -154,3 +172,6 @@ ScienceFlow 在进程内使用 InquiryCraft `0.9.0` 作为通用 Agent Runtime�
 发布 workflow 仅接受与项目版本一致的 tag；它会构建并检查 wheel 与源码包，在干净环境中
 安装 wheel，运行公共依赖契约，再通过 PyPI Trusted Publishing 上传。完整回归命令为
 `uv run --locked pytest -q`。ML、GPU、MLE-bench 与 scientific-design 测试需要对应的可选依赖。
+
+TUI 聊天和任务准备默认可执行 shell（当前用户权限，无操作系统沙箱），无默认超时。
+Esc 取消当前聊天，退出 TUI 回收前台命令及子进程；长程 worker 的执行控制保持独立。

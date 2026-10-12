@@ -18,7 +18,7 @@ def test_sessions_isolate_workspaces_and_preserve_old_files(tmp_path):
             session_log.write_text('history')
         click.echo(session_log)
 
-    configure_sessions(command, lambda: tmp_path / 'state')
+    configure_sessions(command)
     runner = CliRunner()
     first = runner.invoke(command, ['--workspace', str(tmp_path / 'a')])
     assert first.exit_code == 0, first.output
@@ -39,8 +39,8 @@ def test_sessions_isolate_workspaces_and_preserve_old_files(tmp_path):
     assert previous.read_text() == 'original history'
 
 
-def test_launch_directory_wins_over_environment_and_legacy_history_is_recoverable(monkeypatch, tmp_path):
-    from hashlib import sha256
+def test_launch_directory_wins_over_environment_and_local_history_is_recoverable(monkeypatch, tmp_path):
+    from os import utime
 
     from scienceflow.interfaces.cli.user_config import add_environment_options
 
@@ -48,11 +48,11 @@ def test_launch_directory_wins_over_environment_and_legacy_history_is_recoverabl
     @click.option('--workspace', type=click.Path(path_type=Path))
     @click.option('--session-log', type=click.Path(path_type=Path))
     def command(workspace, session_log):
-        assert session_log.is_relative_to(workspace) or session_log.is_relative_to(tmp_path / 'state')
+        assert session_log.is_relative_to(workspace)
         session_log.touch()
         click.echo(session_log)
 
-    configure_sessions(command, lambda: tmp_path / 'state')
+    configure_sessions(command)
     add_environment_options(command, ('TUI',))
     monkeypatch.setenv('SCIENCEFLOW_WORKSPACE', str(tmp_path / 'wrong'))
     monkeypatch.setenv('SCIENCEFLOW_TUI_WORKSPACE', str(tmp_path / 'wrong'))
@@ -61,13 +61,13 @@ def test_launch_directory_wins_over_environment_and_legacy_history_is_recoverabl
     launch.mkdir()
     monkeypatch.chdir(launch)
     runner = CliRunner()
-    workspace_id = sha256(str(launch).encode()).hexdigest()[:20]
-    legacy = tmp_path / 'state/workspaces' / workspace_id / 'old/session.jsonl'
-    legacy.parent.mkdir(parents=True)
-    legacy.write_text('')
+    local_session = launch / '.scienceflow/sessions/old/session.jsonl'
+    local_session.parent.mkdir(parents=True)
+    local_session.write_text('')
     restored = runner.invoke(command, ['--resume'])
     assert restored.exit_code == 0, restored.output
-    assert Path(restored.output.strip()) == legacy
+    assert Path(restored.output.strip()) == local_session
+    utime(local_session, (1, 1))
     fresh = runner.invoke(command)
     assert fresh.exit_code == 0, fresh.output
     assert Path(fresh.output.strip()).parent.parent == launch / '.scienceflow/sessions'
@@ -80,3 +80,50 @@ def test_launch_directory_wins_over_environment_and_legacy_history_is_recoverabl
     missing = runner.invoke(command, ['--resume'])
     assert missing.exit_code != 0
     assert 'No saved session' in missing.output
+
+
+def test_real_tui_resume_rejects_active_session_before_runtime_creation(monkeypatch, tmp_path):
+    import json
+
+    import inquirycraft.tui
+    from scienceflow.interfaces.cli.tui_sessions import exclusive_file_lock
+
+    from scienceflow.interfaces.cli.commands.run.tui import build_tui_command
+    from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory
+
+    created = []
+
+    def create_runtime(self, options, **kwargs):
+        created.append(options)
+        return object()
+
+    class FakeTui:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def run_async(self):
+            pass
+
+        async def shutdown_runtime(self):
+            pass
+
+    monkeypatch.setattr(PoolRuntimeFactory, 'create_runtime', create_runtime)
+    monkeypatch.setattr(inquirycraft.tui, 'InquiryCraftTui', FakeTui)
+    config = tmp_path / 'models.json'
+    config.write_text(json.dumps({
+        'models': {'fake': {'model': 'fake', 'endpoints': [{'url': '', 'key': 'test'}]}},
+        'defaults': {'code_models': ['fake']},
+    }))
+    session = tmp_path / '.scienceflow/sessions/saved/session.jsonl'
+    session.parent.mkdir(parents=True)
+    session.write_text('')
+    command = build_tui_command()
+    arguments = ['--resume', '--workspace', str(tmp_path), '--models', 'fake',
+                 '--model-config', str(config)]
+    with exclusive_file_lock(session.with_name('session.jsonl.writer.lock')):
+        rejected = CliRunner().invoke(command, arguments)
+        assert rejected.exit_code == 1 and 'already open' in rejected.output
+        assert not created and session.read_bytes() == b''
+    accepted = CliRunner().invoke(command, arguments)
+    assert accepted.exit_code == 0, accepted.output
+    assert len(created) == 1 and created[0].session_log == session

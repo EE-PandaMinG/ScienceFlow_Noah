@@ -14,6 +14,8 @@ from uuid import uuid4
 import psutil
 import yaml
 
+from scienceflow.runtime.parallel.location.local import validate_record_location
+
 from .registry import alive, locked, read_record, registry_root, run_dir, write_record
 
 
@@ -25,7 +27,7 @@ class WorkspaceBusy(ValueError):
         super().__init__(f"Task workspace is already running: {run_id}")
 
 
-def start_run(manifest_path, *, draft=None, check_resources=False, library_workspace=None) -> dict:
+def start_run(manifest_path, *, draft=None, library_workspace=None) -> dict:
     from scienceflow.runtime.parallel.execution.runner import ParallelRunner
 
     source = Path(manifest_path).expanduser().resolve()
@@ -42,7 +44,7 @@ def start_run(manifest_path, *, draft=None, check_resources=False, library_works
     # A registry-wide lock prevents concurrent starts targeting the same task root.
     with locked(registry_root()):
         for record in list_runs():
-            occupied = record.get('task_roots', ()) if check_resources and 'resource_claims' not in record else record.get('lock_scopes', record.get('task_roots', ()))
+            occupied = record.get('task_roots', ()) if 'resource_claims' not in record else record.get('lock_scopes', record.get('task_roots', ()))
             if record['alive'] and overlaps(occupied, scopes):
                 raise WorkspaceBusy(record['run_id'])
         with locked(directory):
@@ -56,17 +58,19 @@ def start_run(manifest_path, *, draft=None, check_resources=False, library_works
                     workspace_base=str(Path(task.workspace).parent.parent), input_data_dir=str(task.input_data_dir or ''),
                     workers=int(lnr.get('num_workers', 2)), wall_clock_sec=int(lnr.get('wall_clock_budget_sec', task.time_limit)),
                     gpu_list=str(task.gpu_list_raw), cpu_list=str(task.cpu_list))
-            record = {'run_id': run_id, 'source_manifest': str(source), 'task_roots': roots,
+            location = dict(getattr(draft, 'execution_location', {}) or {})
+            record = {'execution_location': location, 'run_id': run_id, 'source_manifest': str(source), 'task_roots': roots,
                       'control_workspace': control_workspace, 'lock_scopes': scopes,
-                      'library_workspace': str(Path(library_workspace).resolve()) if library_workspace else control_workspace,
+                      'library_workspace': str(Path(library_workspace).resolve()) if library_workspace else location.get('management_workspace', control_workspace),
                       'cwd': str(Path.cwd()), 'created_at': time.time(), 'attempt': 0,
                       'draft': asdict(draft) if draft is not None else None}
+            validate_record_location(record)
             # Keep the exact resolved runner inputs; relative manifest paths retain their launch cwd.
             payload = yaml.safe_load(source.read_text())
             record['manifest_payload'] = payload
-            if check_resources:
-                from .resource_claims import apply_reservation
-                apply_reservation(record, list_runs())
+            from .resource_claims import apply_reservation, task_requests
+            record['resource_requests'] = task_requests(tasks)
+            apply_reservation(record, list_runs())
             return _launch(directory, record, resume=False)
 
 
@@ -141,7 +145,7 @@ def stop_run(run_id: str, *, timeout: float = 20) -> dict:
     return get_run(run_id)
 
 
-def resume_run(run_id: str, *, check_resources=False) -> dict:
+def resume_run(run_id: str) -> dict:
     directory = run_dir(run_id)
     with locked(registry_root()):
         with locked(directory):
@@ -150,18 +154,18 @@ def resume_run(run_id: str, *, check_resources=False) -> dict:
                 raise ValueError('Run is already active; attach its TUI instead of resuming twice.')
             if record.get('status') == 'completed':
                 raise ValueError('Run is already completed. Start a new experiment explicitly instead of resuming it.')
-            check_resources = check_resources or 'resource_claims' in record
             from .selection import overlaps
-            roots = record.get('task_roots', ()) if check_resources and 'resource_claims' not in record else record.get('lock_scopes', record.get('task_roots', ()))
-            if any(r['alive'] and overlaps(roots, r.get('task_roots', ()) if check_resources and 'resource_claims' not in r
+            roots = record.get('task_roots', ()) if 'resource_claims' not in record else record.get('lock_scopes', record.get('task_roots', ()))
+            if any(r['alive'] and overlaps(roots, r.get('task_roots', ()) if 'resource_claims' not in r
                                           else r.get('lock_scopes', r.get('task_roots', ()))) for r in list_runs()):
                 raise ValueError('Another run is using the same task workspace.')
-            if check_resources or 'resource_claims' in record:
-                from .resource_claims import apply_reservation
-                apply_reservation(record, list_runs())
-                record['lock_scopes'] = roots
+            validate_record_location(record)
             from scienceflow.runtime.parallel.execution.runner import ParallelRunner
             runner = ParallelRunner(record['manifest'])
+            from .resource_claims import apply_reservation, task_requests
+            record.setdefault('resource_requests', task_requests(runner._tasks))
+            apply_reservation(record, list_runs())
+            record['lock_scopes'] = roots
             if len(runner._tasks) == 1:
                 remaining = runner._check_resume(runner._tasks[0])
                 if remaining is not None:

@@ -9,11 +9,12 @@ from pathlib import Path
 
 import click
 from inquirycraft.cli import create_cli
+from inquirycraft.runtime import AgentRuntime
 
 from scienceflow.foundation.config.llm.model_registry import load_model_registry
 from scienceflow.foundation.config.runtime.llm_lists import values
 from scienceflow.interfaces.cli.user_config import set_tui_state_defaults
-from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory, plural_cli_options
+from scienceflow.interfaces.ui.llm_cli import TuiPoolRuntimeFactory, plural_cli_options
 from scienceflow.interfaces.ui.logo import COMPACT_LOGO_PIXELS, LOGO_PIXELS
 from scienceflow.interfaces.ui.long_research import LongResearchInteraction
 
@@ -41,14 +42,14 @@ def _pin_tui_chat_model(command: click.Command) -> click.Command:
     command.callback = invoke
     for param in command.params:
         if param.name == "model":
-            param.help = (
-                "One chat model alias from models.json; defaults to the first code model."
-            )
+            param.help = "One chat model alias from models.json; defaults to the first code model."
     return command
 
 
 def build_tui_command(*, initial_command: str = "") -> click.Command:
     """Reuse InquiryCraft's TUI command while injecting one ScienceFlow interceptor."""
+
+    import inquirycraft.tui as tui_host
 
     required_host_parameters = {
         "include_tui",
@@ -57,28 +58,53 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
         "tui_branding",
         "tui_interceptor_factory",
     }
-    if not required_host_parameters.issubset(signature(create_cli).parameters):
+    missing = []
+    if not hasattr(tui_host, "TuiInputPreprocessor"):
+        missing.append("pre-history input hook (TuiInputPreprocessor)")
+    missing_parameters = (
+        required_host_parameters - signature(create_cli).parameters.keys()
+    )
+    if missing_parameters:
+        missing.append("CLI host parameters: " + ", ".join(sorted(missing_parameters)))
+    if not callable(getattr(AgentRuntime, "compact_context", None)):
+        missing.append("manual context compaction (AgentRuntime.compact_context)")
+    if missing:
 
         @click.command("tui")
         def unavailable_tui():
             """Start the full-screen interface (requires InquiryCraft TUI host APIs)."""
             raise click.ClickException(
-                "ScienceFlow TUI requires the InquiryCraft 0.9.0 host and model-registry APIs. "
-                "Install that release before starting TUI."
+                "ScienceFlow TUI cannot start: InquiryCraft is missing "
+                + "; ".join(missing)
+                + ". "
+                + "Load the matching local InquiryCraft source before starting TUI."
             )
 
         return unavailable_tui
 
     from inquirycraft.tui import TuiBranding
 
+    # Optional presentation fields remain signature-filtered for host extensions.
+    branding_parameters = signature(TuiBranding).parameters
+    presentation_options = {
+        key: value
+        for key, value in {
+            "prompt_placeholder": "Type a message · /long-research · /help",
+            "notice_background": "#3B4048",
+            "fold_system_notices": True,
+        }.items()
+        if key in branding_parameters
+    }
+
     try:
         package_version = version("scienceflow")
     except PackageNotFoundError:
         package_version = "dev"
 
+    runtime_factory = TuiPoolRuntimeFactory()
     host = create_cli(
         name="scienceflow-tui-host",
-        runtime_factory=PoolRuntimeFactory(),
+        runtime_factory=runtime_factory,
         model_config_default=Path("~/.config/scienceflow/models.json"),
         model_default_key="code_models",
         include_tui=True,
@@ -101,12 +127,17 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
             version=package_version,
             welcome_text=(
                 "Long Research · parallel workers explore, evaluate, and preserve the best result.\n"
-                "Start with /long-research · monitor with /tasks · continue with /resume"
+                "Start with /long-research · monitor with /tasks · resume a task with /resume N"
             ),
             welcome_emphasis=("Long Research", "parallel workers", "best result"),
+            **presentation_options,
         ),
         tui_interceptor_factory=lambda workspace: LongResearchInteraction(
-            Path(workspace), managed=True, multi_task=True, initial_command=initial_command
+            Path(workspace),
+            managed=True,
+            multi_task=True,
+            initial_command=initial_command,
+            preparation_runtime_factory=runtime_factory,
         ),
     )
     command = host.commands.get("tui")
@@ -122,7 +153,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
                 "and return the requested JSON contract. Do not start research workers "
                 "during preparation."
             )
-    return set_tui_state_defaults(_pin_tui_chat_model(plural_cli_options(command)))
+    return _pin_tui_chat_model(set_tui_state_defaults(plural_cli_options(command)))
 
 
 tui = build_tui_command()

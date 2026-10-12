@@ -8,8 +8,8 @@ from dataclasses import asdict, is_dataclass
 
 import psutil
 
-from .telemetry.formatting import percentage
-from .telemetry.sampler import SAMPLER
+from .formatting import percentage
+from .sampler import SAMPLER
 
 _VISIBLE_TASK_STATES = frozenset({'starting', 'running'})
 

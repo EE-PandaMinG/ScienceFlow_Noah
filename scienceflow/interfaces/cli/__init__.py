@@ -397,6 +397,11 @@ from scienceflow.interfaces.cli.commands.run.repl import repl
 from scienceflow.interfaces.cli.commands.run.task import prep, run
 from scienceflow.interfaces.cli.commands.run.tui import tui
 
+_ADVANCED_COMMANDS = {
+    "prep", "repl", "parallel", "monitor", "monitor-trace",
+    "resource-summary", "replay-prepare",
+}
+
 for _command in (
     prep,
     run,
@@ -412,6 +417,7 @@ for _command in (
     resource_summary_cmd,
     replay_prepare_cmd,
 ):
+    _command.hidden = _command.name in _ADVANCED_COMMANDS
     main.add_command(_command)
 
 
@@ -433,10 +439,9 @@ _inquirycraft_cli_options: dict[str, Any] = {
 if "include_tui" in _call_signature(_create_inquirycraft_cli).parameters:
     _inquirycraft_cli_options["include_tui"] = False
 
-main.add_command(
-    plural_cli_options(_create_inquirycraft_cli(**_inquirycraft_cli_options)),
-    name="agent",
-)
+_agent_command = plural_cli_options(_create_inquirycraft_cli(**_inquirycraft_cli_options))
+_agent_command.hidden = True
+main.add_command(_agent_command, name="agent")
 
 
 from scienceflow.interfaces.cli.user_config import (

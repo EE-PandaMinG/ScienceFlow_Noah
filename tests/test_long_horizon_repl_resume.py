@@ -2,9 +2,35 @@
 
 from __future__ import annotations
 
-from tests._long_horizon_repl_support import *  # noqa: F401,F403
+import asyncio
+import csv
+import hashlib
+import json
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
+
+from tests._long_horizon_repl_support import (
+    EnsureFullRunResult,
+    LHR_STAGE_PERFORMANCE_COLUMNS,
+    LnrSolver,
+    SnapshotStore,
+    StageSnapshot,
+    ToolResult,
+    _make_metric_snapshot_agent,
+    _minimal_lhr_solver,
+    build_estra_resume_prompt,
+    build_keep_current_compact_prompt,
+    lnr_solver_module,
+    write_fullrun_tail_snapshot,
+)
 from scienceflow.research.solver.lnr.orchestration.coordinator.resource import advisory, prompt_projection
-from scienceflow.research.solver.lnr.orchestration.coordinator.run import coordination, event_projection
+from scienceflow.research.solver.lnr.orchestration.coordinator.run import coordination, event_projection, agent_coordination
+from scienceflow.research.solver.lnr.orchestration.coordinator.evaluation import metric_projection
+from scienceflow.research.solver.lnr.orchestration.coordinator.lifecycle.context import memory_projection
+from scienceflow.research.solver.lnr.orchestration.coordinator.lifecycle.stage import adapter as stage_adapter, commit as stage_commit
 
 
 def test_lhr_agent_metric_only_snapshot_without_submission(tmp_path: Path) -> None:
@@ -376,7 +402,7 @@ def test_metric_event_uses_task_direction_over_declared_snapshot_value(tmp_path:
         encoding="utf-8",
     )
 
-    event = solver._metric_event_from_workspace()
+    event = metric_projection._metric_event_from_workspace(solver)
 
     assert event is not None
     assert event["lower_is_better"] is False
@@ -552,7 +578,7 @@ def test_lhr_protected_eda_prefix_resume_uses_pre_commit_boundary(
             self.end_index = end_index
 
     ctx = _MemoryContext()
-    solver._restore_protected_eda_prefix_marker(SimpleNamespace(_memory_ctx=ctx))
+    memory_projection._restore_protected_eda_prefix_marker(solver, SimpleNamespace(_memory_ctx=ctx))
 
     assert ctx.end_index == 1
     assert solver._s01_eda_prefix_end_index == 1
@@ -593,14 +619,14 @@ def test_lhr_process_resume_rehydrates_stage_snapshots(tmp_path: Path) -> None:
     )
     solver.snapshot_store = store
     solver.stage_snapshots = {"S01": snapshot}
-    solver._write_stage_map()
+    event_projection._write_stage_map(solver)
 
     solver.stage_snapshots = {}
     solver.last_captured_solution_sha = ""
     solver.last_captured_run_signature = ""
     solver.current_lineage_no = 1
     solver.current_lineage_id = "L01"
-    solver._load_existing_stage_snapshots()
+    event_projection._load_existing_stage_snapshots(solver)
 
     assert list(solver.stage_snapshots) == ["S01"]
     assert solver.stage_snapshots["S01"].snapshot_id == snapshot.snapshot_id
@@ -647,7 +673,7 @@ def test_lhr_failed_post_restore_step_rolls_back_terminal_archive(tmp_path: Path
             OSError("injected post-restore failure")
         )
 
-        await solver._restore_pending_estra()
+        await agent_coordination._restore_pending_estra(solver)
 
         assert restored_archives == [archive]
         assert solver.current_lineage_no == 1
@@ -667,7 +693,8 @@ def test_lhr_resume_rolls_back_ledger_when_stage_snapshot_is_missing(tmp_path: P
     metric_event = {"artifact_sha": "new-artifact", "gate_accepted": True}
     solver.snapshot_store = SimpleNamespace(discover=lambda: {})
 
-    solver._prepare_stage_commit_transaction(
+    stage_adapter._prepare_stage_commit_transaction(
+        solver,
         stage_id="S03",
         ledger_before=ledger_before,
         ledger_after=ledger_after,
@@ -675,7 +702,7 @@ def test_lhr_resume_rolls_back_ledger_when_stage_snapshot_is_missing(tmp_path: P
     )
     solver.ledger_path.write_text(ledger_after, encoding="utf-8")
     solver.pending_stage_commit_transaction = None  # simulate process restart
-    solver._recover_stage_commit_transactions()
+    stage_adapter._recover_stage_commit_transactions(solver)
 
     assert solver.ledger_path.read_text(encoding="utf-8") == ledger_before
     manifest = json.loads((solver.log_dir / "stage_transactions" / "L01-S03.json").read_text())
@@ -687,7 +714,8 @@ def test_lhr_resume_completes_only_the_matching_stage_transaction_snapshot(tmp_p
     ledger_before = solver.ledger_path.read_text(encoding="utf-8")
     ledger_after = ledger_before + "### S03\nmetric: 0.09\nlower_is_better: true\nBRIEF: pending\nWHY: pending\n"
     metric_event = {"artifact_sha": "new-artifact", "gate_accepted": True}
-    solver._prepare_stage_commit_transaction(
+    stage_adapter._prepare_stage_commit_transaction(
+        solver,
         stage_id="S03",
         ledger_before=ledger_before,
         ledger_after=ledger_after,
@@ -708,7 +736,7 @@ def test_lhr_resume_completes_only_the_matching_stage_transaction_snapshot(tmp_p
     solver.snapshot_store = SimpleNamespace(discover=lambda: {"S03": snapshot})
     solver.ledger_path.write_text(ledger_after, encoding="utf-8")
     solver.pending_stage_commit_transaction = None  # simulate process restart
-    solver._recover_stage_commit_transactions()
+    stage_adapter._recover_stage_commit_transactions(solver)
 
     assert solver.ledger_path.read_text(encoding="utf-8") == ledger_after
     manifest = json.loads((solver.log_dir / "stage_transactions" / "L01-S03.json").read_text())
@@ -720,7 +748,8 @@ def test_lhr_resume_does_not_match_an_older_snapshot_with_same_stage_id(tmp_path
     ledger_before = solver.ledger_path.read_text(encoding="utf-8")
     ledger_after = ledger_before + "### S03\nmetric: 0.09\nlower_is_better: true\nBRIEF: pending\nWHY: pending\n"
     metric_event = {"artifact_sha": "same-artifact", "gate_accepted": True}
-    solver._prepare_stage_commit_transaction(
+    stage_adapter._prepare_stage_commit_transaction(
+        solver,
         stage_id="S03",
         ledger_before=ledger_before,
         ledger_after=ledger_after,
@@ -741,7 +770,7 @@ def test_lhr_resume_does_not_match_an_older_snapshot_with_same_stage_id(tmp_path
     solver.snapshot_store = SimpleNamespace(discover=lambda: {"S03": old_snapshot})
     solver.ledger_path.write_text(ledger_after, encoding="utf-8")
     solver.pending_stage_commit_transaction = None
-    solver._recover_stage_commit_transactions()
+    stage_adapter._recover_stage_commit_transactions(solver)
 
     assert solver.ledger_path.read_text(encoding="utf-8") == ledger_before
     manifest = json.loads((solver.log_dir / "stage_transactions" / "L01-S03.json").read_text())
@@ -844,7 +873,8 @@ def test_lhr_stage_commit_experiment_state_keeps_abandoned_lineage_global_best(
             }
         )
 
-    state = solver._build_stage_commit_experiment_state(
+    state = stage_commit._build_stage_commit_experiment_state(
+        solver,
         stage_id="S03",
         metric_event={
             "metric_value": 0.80,

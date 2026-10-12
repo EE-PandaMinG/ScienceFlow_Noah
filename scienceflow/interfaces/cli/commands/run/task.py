@@ -1,4 +1,4 @@
-"""Task preparation and solver commands."""
+"""Task preparation and managed research commands."""
 
 import asyncio
 from pathlib import Path
@@ -14,12 +14,12 @@ from scienceflow.interfaces.cli import (
 )
 from scienceflow.foundation.config.schema.settings import (
     apply_parallel_manifest_agent_overrides,
-    apply_parallel_manifest_lnr_overrides,
     apply_profile_overrides,
     load_cfg,
     prep_cfg,
 )
 from scienceflow.runtime.observability.logging import setup_logging
+
 
 @click.command()
 @click.option("--task", "-t", required=True, help="Task description")
@@ -59,7 +59,9 @@ def prep(task, config, workspace, input_data_dir, show_preview, run_agent):
     apply_profile_overrides(cfg)
     apply_parallel_manifest_agent_overrides(cfg)
     prep_cfg(cfg)
-    setup_logging(cfg.log_dir, interaction_log_color=cfg.scienceflow_interaction_log_color)
+    setup_logging(
+        cfg.log_dir, interaction_log_color=cfg.scienceflow_interaction_log_color
+    )
     if run_agent:
         _repl_allow_input_data_root(cfg)
         ws_dataset = Path(cfg.workspace_dir) / "dataset"
@@ -79,13 +81,23 @@ def prep(task, config, workspace, input_data_dir, show_preview, run_agent):
         preview = scan_data_dir(
             Path(cfg.workspace_dir) / "dataset",
             max_chars=int(getattr(cfg, "data_preview_max_chars", 32000) or 32000),
-            max_items_per_dir=int(getattr(cfg, "data_preview_max_items_per_dir", 40) or 40),
+            max_items_per_dir=int(
+                getattr(cfg, "data_preview_max_items_per_dir", 40) or 40
+            ),
             walk_budget_dirs=getattr(cfg, "data_scan_walk_budget_dirs", None),
             walk_budget_files=getattr(cfg, "data_scan_walk_budget_files", None),
-            probe_binary_dirs_budget=int(getattr(cfg, "data_scan_probe_binary_dirs_budget", 8) or 8),
-            preview_raw_dirs_budget=int(getattr(cfg, "data_scan_preview_raw_dirs_budget", 12) or 12),
-            meta_sample_max_bytes=int(getattr(cfg, "data_scan_meta_sample_max_bytes", 50000) or 50000),
-            csv_max_rows_to_scan=int(getattr(cfg, "data_scan_csv_max_rows_to_scan", 200000) or 200000),
+            probe_binary_dirs_budget=int(
+                getattr(cfg, "data_scan_probe_binary_dirs_budget", 8) or 8
+            ),
+            preview_raw_dirs_budget=int(
+                getattr(cfg, "data_scan_preview_raw_dirs_budget", 12) or 12
+            ),
+            meta_sample_max_bytes=int(
+                getattr(cfg, "data_scan_meta_sample_max_bytes", 50000) or 50000
+            ),
+            csv_max_rows_to_scan=int(
+                getattr(cfg, "data_scan_csv_max_rows_to_scan", 200000) or 200000
+            ),
         )
         click.echo("--- data preview ---")
         click.echo(preview)
@@ -93,9 +105,20 @@ def prep(task, config, workspace, input_data_dir, show_preview, run_agent):
 
 @click.command()
 @click.argument("target", required=False)
-@click.option("--task", "-t", required=False, help="Legacy foreground task description")
-@click.option("--manifest", "-m", type=click.Path(exists=True, dir_okay=False), default=None)
-@click.option("--tui", "with_tui", is_flag=True, help="Prepare and view a managed research task in TUI.")
+@click.option(
+    "--execution-root",
+    default=None,
+    help="Local allocation root; creates a unique task directory without moving chat sessions.",
+)
+@click.option(
+    "--manifest", "-m", type=click.Path(exists=True, dir_okay=False), default=None
+)
+@click.option(
+    "--tui",
+    "with_tui",
+    is_flag=True,
+    help="Prepare and view a managed research task in TUI.",
+)
 @click.option("--workers", type=click.IntRange(min=1), default=None)
 @click.option(
     "--duration",
@@ -109,7 +132,7 @@ def prep(task, config, workspace, input_data_dir, show_preview, run_agent):
     "--workspace",
     "-w",
     default=".",
-    help="Task output root (LNR runs create indexed worker execution dirs under it)",
+    help="Management workspace for task discovery and default execution; chat sessions stay here.",
 )
 @click.option(
     "--input-data-dir",
@@ -119,60 +142,55 @@ def prep(task, config, workspace, input_data_dir, show_preview, run_agent):
     type=click.Path(exists=False),
     help="Override config input_data_dir (read-only raw competition input)",
 )
-@click.option(
-    "--type",
-    "task_type",
-    default="lnr",
-    type=click.Choice(["lnr"]),
-    help="REPL-native long-horizon solver.",
-)
 def run(
-    task,
+    target,
+    execution_root,
+    manifest,
+    with_tui,
+    workers,
+    duration,
+    cpu,
+    gpu,
     config,
     workspace,
     input_data_dir,
-    task_type,
-    target=None, manifest=None, with_tui=False, workers=None, duration=None, cpu=None, gpu=None,
 ):
-    """Start managed long research; --task alone retains legacy foreground execution."""
-    managed = target is not None or manifest is not None or with_tui or any(v is not None for v in (workers, duration, cpu, gpu))
-    ctx = click.get_current_context(silent=True)
-    if task and target is None and ctx is not None:
-        from click.core import ParameterSource
-        if ctx.get_parameter_source("task") == ParameterSource.COMMANDLINE:
-            # Parallel workers explicitly use --task. Parent command environment
-            # defaults must never turn that worker into another managed launcher.
-            managed = any(ctx.get_parameter_source(name) == ParameterSource.COMMANDLINE
-                          for name in ("manifest", "with_tui", "workers", "duration", "cpu", "gpu"))
-    if managed:
-        if target and task:
-            raise click.UsageError("Choose positional TARGET or --task, not both.")
-        from .control import managed_run
-        return managed_run(target or task, manifest=manifest, with_tui=with_tui, workspace=workspace,
-                           input_data_dir=input_data_dir, workers=workers, duration=duration,
-                           cpu=cpu, gpu=gpu, config=config)
-    if not task:
-        raise click.UsageError("Provide a task name/directory, --manifest, or legacy --task.")
-    cfg = load_cfg(config)
-    _apply_parallel_manifest_cfg_env(cfg)
-    _apply_task_workspace(cfg, workspace)
-    if input_data_dir is not None:
-        cfg.input_data_dir = Path(input_data_dir).expanduser().resolve(strict=False)
-    if task_type == "lnr":
-        setattr(
-            cfg,
-            "_log_dir_override",
-            Path(cfg.task_workspace_root_dir).expanduser().resolve(strict=False) / "task_logs",
-        )
-    apply_profile_overrides(cfg)
-    apply_parallel_manifest_lnr_overrides(cfg)
-    apply_parallel_manifest_agent_overrides(cfg)
-    prep_cfg(cfg)
-    setup_logging(cfg.log_dir, interaction_log_color=cfg.scienceflow_interaction_log_color)
+    """Run TARGET through the single managed research lifecycle."""
+    from .control import managed_run
 
-    from scienceflow.runtime.workflow import Orchestrator
-    orch = Orchestrator(cfg)
-    result = asyncio.run(orch.run(task, task_type))
-    click.echo(f"Result: {result}")
-    if isinstance(result, dict) and str(result.get("status") or "").lower() not in {"", "success"}:
-        raise SystemExit(1)
+    if target is not None and manifest is not None:
+        raise click.UsageError("Use TARGET or --manifest, not both.")
+    if manifest is not None:
+        overrides = {
+            "--execution-root": execution_root,
+            "--workers": workers,
+            "--duration": duration,
+            "--cpu": cpu,
+            "--gpu": gpu,
+            "--config": config,
+            "--input-data-dir": input_data_dir,
+        }
+        supplied = [name for name, value in overrides.items() if value is not None]
+        if supplied:
+            raise click.UsageError(
+                "Cannot combine --manifest with "
+                + ", ".join(supplied)
+                + ". Set task resources and configuration in the manifest."
+            )
+    if target is None and manifest is None:
+        from .control.guided import choose_task
+
+        target = choose_task(Path(workspace).expanduser().resolve(strict=False))
+    return managed_run(
+        target,
+        manifest=manifest,
+        execution_root=execution_root,
+        with_tui=with_tui,
+        workspace=workspace,
+        input_data_dir=input_data_dir,
+        workers=workers,
+        duration=duration,
+        cpu=cpu,
+        gpu=gpu,
+        config=config,
+    )

@@ -18,7 +18,7 @@ TUI and Web monitor.
 </p>
 
 > [!IMPORTANT]
-> **Testing preview.** Interfaces and workspace metadata may change before the stable release.
+> **Testing preview · 0.2.0b7.** Interfaces and workspace metadata may change before the stable release.
 
 ## Quick start
 
@@ -30,7 +30,7 @@ Install ScienceFlow with <a href="https://pipx.pypa.io/latest/how-to/install-pip
 the command is available from any directory while its Python dependencies remain isolated:
 
 ```bash
-pipx install scienceflow==0.2.0b6
+pipx install scienceflow==0.2.0b7
 scienceflow --help
 ```
 
@@ -42,13 +42,13 @@ scienceflow --help
 ```bash
 conda create -n scienceflow python=3.12 -y
 conda activate scienceflow
-python -m pip install scienceflow==0.2.0b6
+python -m pip install scienceflow==0.2.0b7
 ```
 
 **uv**
 
 ```bash
-uv tool install scienceflow==0.2.0b6
+uv tool install scienceflow==0.2.0b7
 ```
 
 **Python virtual environment**
@@ -56,7 +56,7 @@ uv tool install scienceflow==0.2.0b6
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install scienceflow==0.2.0b6
+python -m pip install scienceflow==0.2.0b7
 ```
 
 </details>
@@ -69,10 +69,71 @@ scienceflow config path     # edit the generated private model registry
 scienceflow tui --workspace "$PWD/sf_workspace"
 ```
 
+`scienceflow run [TARGET]` is the single command-line entry point for managed
+research. `TARGET` may be a built-in task ID, a local task folder, or a new task
+description:
+
+The main `scienceflow --help` page shows everyday commands. Advanced commands
+such as `scienceflow parallel` and `scienceflow monitor-trace` remain available
+directly and have their own `--help` pages.
+
+```bash
+scienceflow run circle-packing --workspace "$PWD/sf_workspace"
+scienceflow run "optimize a new packing problem" --workspace "$PWD/sf_workspace"
+```
+
+Keep chat sessions and the task board in the management workspace while placing
+one task on another **local** disk:
+
+```bash
+scienceflow run circle-packing --workspace "$PWD/sf_workspace" --execution-root /data/experiments
+```
+
+In TUI use `/long-research circle-packing workspace=/data/experiments`, or describe
+the execution directory in natural language. The explicit option needs no model
+call to resolve its location. Natural-language location extraction runs without
+tools before allocation; ambiguous requests can be retried with `workspace=...`.
+Each explicit root gets a unique task subdirectory. Relative roots and input data
+paths resolve against the management workspace; datasets are not copied. Without
+an override the existing directory layout is unchanged. `--execution-root` cannot
+be combined with `--manifest`. Cancel preparation and start a new task to change
+its directory; resume always reuses the recorded directory. SSH execution is not
+implemented in this phase. Preparation uses a separate runtime in the task
+directory, with shell available without changing the chat session.
+This development feature requires the matching local InquiryCraft host source.
+
+CLI and TUI starts and resumes share the same CPU/GPU reservation checks.
+With `--manifest`, set workers, duration, CPU/GPU, data and configuration in the
+manifest; combining it with those CLI options is rejected. The TUI detects
+external starts/resumes through lightweight registry changes without rescanning
+completed experiment directories.
+
+On an interactive terminal, `scienceflow run` with no target lists built-in and
+workspace-local tasks and includes a new-description option. In a pipe or other
+non-interactive process, provide `TARGET` or `--manifest`; the command exits
+immediately instead of prompting. The TUI uses the same catalog when
+`/long-research` is entered without an argument.
+
 <p align="justify">
 Chat normally in the TUI, or enter <code>/long-research</code> to configure and launch a
 managed task. Closing the TUI detaches from research without terminating its workers.
+Research defaults to your selected chat model; use <code>/models</code> to switch.
+Use <code>/compact</code> to condense Chat context without deleting saved records.
+<code>scienceflow tui --resume</code> restores the latest workspace chat session and
+its concise ScienceFlow activity timeline; <code>/resume N</code> resumes research
+task N. Read-only slash queries remain visible now but are omitted from saved
+ScienceFlow activity.
+Ordinary chat receives a short snapshot of the task panel state for the current
+request; this snapshot is not added to the saved conversation.
 </p>
+
+TUI chat and task preparation provide workspace-contained `read_text`, `write_text`,
+and `workspace_info` (current directory, bounded listing and file metadata).
+Shell is available by default and runs as your user with host/network access and
+no OS sandbox. There is no default timeout. Use Esc to cancel the active chat or
+exit TUI to stop foreground commands and their child processes. An explicit shell
+timeout can be set up to 3600 seconds. Long-research workers retain their separate
+execution controls.
 
 ### Minimal TUI example
 
@@ -115,8 +176,8 @@ and retains the best valid artifact under the workspace. Follow it with
   <tbody>
     <tr><td align="left"><code>/long-research DESCRIPTION</code></td><td align="left">Prepare and launch a research task.</td></tr>
     <tr><td align="left"><code>/tasks</code>, <code>/status N</code></td><td align="left">List tasks or inspect one task.</td></tr>
-    <tr><td align="left"><code>/stop N</code>, <code>/resume N</code>, <code>/attach N</code></td><td align="left">Control or follow a task.</td></tr>
-    <tr><td align="left"><code>/research-usage N</code>, <code>/resources</code></td><td align="left">Inspect model, cost, and resource usage.</td></tr>
+    <tr><td align="left"><code>/status N</code></td><td align="left">Inspect a task, including detailed model usage and worker resources.</td></tr>
+    <tr><td align="left"><code>/stop N</code>, <code>/resume N</code>, <code>/attach N</code></td><td align="left">Control or locate a task.</td></tr>
     <tr><td align="left"><code>/models</code></td><td align="left">Select the fixed chat model.</td></tr>
     <tr><td align="left"><code>/web</code>, <code>/web stop</code></td><td align="left">Start or stop the workspace Web monitor.</td></tr>
   </tbody>
@@ -184,7 +245,7 @@ dependencies only when needed:
 </p>
 
 ```bash
-python -m pip install "scienceflow[full]"==0.2.0b6
+python -m pip install "scienceflow[full]"==0.2.0b7
 ```
 
 <p align="justify">

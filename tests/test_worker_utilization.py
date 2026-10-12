@@ -71,7 +71,7 @@ def test_many_gpus_are_compact_but_details_preserve_every_id():
 
 
 def test_host_resources_use_one_aggregate_line(monkeypatch, tmp_path):
-    from scienceflow.interfaces.ui.research import resources
+    from scienceflow.interfaces.ui.research.telemetry import resources
 
     sampler = SimpleNamespace(
         refresh=lambda **_kwargs: None,

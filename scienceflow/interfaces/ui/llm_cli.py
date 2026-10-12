@@ -9,7 +9,13 @@ from inquirycraft.adapters import AskLLMAdapter
 from inquirycraft.cli import ChatMonitor
 from inquirycraft.memory import Conversation, JsonlConversationStore
 from inquirycraft.runtime import AgentRuntime
-from inquirycraft.tools import default_tools
+from inquirycraft.tools import (
+    ReadTextTool,
+    ShellTool,
+    ToolCollection,
+    WriteTextTool,
+    default_tools,
+)
 
 from scienceflow.foundation.config.llm.llm_factory import build_stage_llm
 from scienceflow.foundation.config.runtime.llm_lists import values
@@ -17,7 +23,10 @@ from scienceflow.foundation.config.schema.settings import StageConfig
 
 
 class PoolRuntimeFactory:
-    def create_runtime(self, options, *, api_key, base_url, event_sink):
+    def _tools(self):
+        return default_tools()
+
+    def create_runtime(self, options, *, api_key, base_url, event_sink, tools=None):
         models = values(options.model)
         if not models or not values(api_key):
             raise click.ClickException(
@@ -45,16 +54,39 @@ class PoolRuntimeFactory:
             models,
             len(values(api_key)),
         )
-        return monitor.bind(AgentRuntime(
-            llm=client,
-            compaction_policy=monitor.policy(),
-            provider_observer=monitor,
-            options=replace(options, model=models[0]),
-            tools=default_tools(),
-            event_sink=event_sink,
-            conversation=store.load() if store else Conversation(),
-            conversation_store=store,
-        ))
+        return monitor.bind(
+            AgentRuntime(
+                llm=client,
+                compaction_policy=monitor.policy(),
+                provider_observer=monitor,
+                options=replace(options, model=models[0]),
+                tools=self._tools() if tools is None else tools,
+                event_sink=event_sink,
+                conversation=store.load() if store else Conversation(),
+                conversation_store=store,
+            )
+        )
+
+
+class TuiShellTool(ShellTool):
+    """Shell execution for ScienceFlow TUI chat and task preparation."""
+
+    description = (
+        "Run a shell command as the current user with full host/network access "
+        "and no OS sandbox. No default timeout; optionally set a timeout "
+        "in seconds (maximum 3600)."
+    )
+
+
+class TuiPoolRuntimeFactory(PoolRuntimeFactory):
+    def _tools(self):
+        from scienceflow.interfaces.ui.research.control.workspace_tool import (
+            WorkspaceInfoTool,
+        )
+
+        return ToolCollection(
+            (ReadTextTool(), WriteTextTool(), WorkspaceInfoTool(), TuiShellTool())
+        )
 
 
 def plural_cli_options(command):
@@ -65,7 +97,9 @@ def plural_cli_options(command):
     for param in command.params:
         if param.name in aliases:
             param.opts = list(aliases[param.name])
-            param.help = "Comma-separated aliases from models.json; defaults to code_models."
+            param.help = (
+                "Comma-separated aliases from models.json; defaults to code_models."
+            )
     if isinstance(command, click.Group):
         for child in command.commands.values():
             plural_cli_options(child)

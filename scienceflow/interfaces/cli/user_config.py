@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 import click
 from inquirycraft.llm import write_model_registry_template
 
@@ -69,15 +66,7 @@ def add_environment_options(command: click.Command, path: tuple[str, ...] = ()) 
                 add_environment_options(child, (*path, name.replace("-", "_").upper()))
 
 
-def user_state_dir() -> Path:
-    explicit = os.environ.get("SCIENCEFLOW_TUI_STATE_DIR", "").strip()
-    if explicit:
-        return Path(explicit).expanduser()
-    base = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state")
-    return base.expanduser() / "scienceflow" / "tui"
-
-
 def set_tui_state_defaults(command: click.Command) -> click.Command:
     from scienceflow.interfaces.cli.tui_sessions import configure_sessions
 
-    return configure_sessions(command, user_state_dir)
+    return configure_sessions(command)

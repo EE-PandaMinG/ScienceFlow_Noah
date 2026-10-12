@@ -46,6 +46,8 @@ class LongResearchDraft:
     exp_id: str = ""
     run_id: str = ""
     workspace_base: str = ""
+    execution_root: str = ""
+    execution_location: dict[str, str] = field(default_factory=dict)
     input_data_dir: str = ""
     metric_name: str = ""
     lower_is_better: bool | None = None
@@ -155,16 +157,23 @@ class LongResearchSession:
             task_text=task_text,
             workspace_base=str(root / "runs"),
         )
-        values = ({"task_text": constraints.strip()} if constraints.strip() else {}) if natural_language else parse_constraints(constraints)
+        values = (
+            ({"task_text": constraints.strip()} if constraints.strip() else {})
+            if natural_language
+            else parse_constraints(constraints)
+        )
         if task_id.strip():
             values["exp_id"] = task_id.strip()
         _apply_values(draft, values)
         if draft.input_data_dir and draft.input_data_dir != "none":
             data = Path(draft.input_data_dir).expanduser()
-            draft.input_data_dir = str((data if data.is_absolute() else root / data).resolve())
+            draft.input_data_dir = str(
+                (data if data.is_absolute() else root / data).resolve()
+            )
 
         from scienceflow.research.onboarding.support.preparation.discovery import (
             discover_task,
+            discover_request_materials,
         )
 
         # Resolve registered IDs before reading arbitrary local task documents.
@@ -174,6 +183,7 @@ class LongResearchSession:
         else:
             if natural_language:
                 draft.task_root = str(root)
+                discover_request_materials(draft, root)
             else:
                 discover_task(draft, root)
             draft.exploratory = True
@@ -262,8 +272,11 @@ class LongResearchSession:
         self.preflight_report = None
         self.state = OnboardingState.ASKING
         self._refresh_state()
-        return self._update("preflight" if self.ready_for_preflight else "answered", self.next_prompt(),
-                            question=self.next_question())
+        return self._update(
+            "preflight" if self.ready_for_preflight else "answered",
+            self.next_prompt(),
+            question=self.next_question(),
+        )
 
     def apply_preflight(self, report: object) -> SessionUpdate:
         """Record a report exposing ``status`` and advance only non-failed runs."""
