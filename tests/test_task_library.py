@@ -163,11 +163,11 @@ def test_cli_and_tui_task_picker_share_number_name_and_description_resolution(tm
     local_index = next(
         index
         for index, item in enumerate(choices, 1)
-        if item.task_id == "positive-number"
+        if item.task_id == Path(result["path"]).name
     )
     assert "positive-number · Local" in text
     assert resolve_task_selection(str(local_index), choices) == result["path"]
-    assert resolve_task_selection("positive-number", choices) == result["path"]
+    assert resolve_task_selection(Path(result["path"]).name, choices) == result["path"]
     assert (
         resolve_task_selection(f"{local_index} workers=2", choices)
         == f"{shlex.quote(result['path'])} workers=2"

@@ -16,6 +16,7 @@ class TaskChoice:
     value: str
     task_id: str
     source: str
+    name: str = ""
 
 
 def local_packages(workspace):
@@ -66,25 +67,22 @@ def resolve_local(text, workspace):
 
 def task_choices(workspace):
     return tuple(
-        (shlex.quote(choice.task_id), f"{choice.task_id} · {choice.source}")
+        (shlex.quote(choice.task_id), f"{choice.name or choice.task_id} · {choice.source}")
         for choice in discover_tasks(workspace)
     )
 
 
 def discover_tasks(workspace):
-    """Return one entry per task ID; built-in IDs keep their canonical target."""
+    """Keep every local registration alongside canonical built-in task IDs."""
     local = [
-        TaskChoice(str(spec.source_dir), spec.task_id, "Local")
+        TaskChoice(str(spec.source_dir), spec.source_dir.name, "Local", spec.task_id)
         for spec in local_packages(workspace)
     ]
     builtin = [
         TaskChoice(spec.task_id, spec.task_id, "Built-in")
         for spec in iter_task_packages()
     ]
-    unique = {choice.task_id: choice for choice in builtin}
-    for choice in local:
-        unique.setdefault(choice.task_id, choice)
-    return tuple(unique.values())
+    return tuple(local + builtin)
 
 
 def task_selection_text(workspace):
@@ -92,7 +90,7 @@ def task_selection_text(workspace):
     choices = discover_tasks(workspace)
     lines = ["Available tasks:"]
     lines.extend(
-        f"  {index}. {choice.task_id} · {choice.source}"
+        f"  {index}. {choice.name or choice.task_id} · {choice.source}"
         for index, choice in enumerate(choices, 1)
     )
     lines.append("  0. Describe a new task")
@@ -100,14 +98,20 @@ def task_selection_text(workspace):
 
 
 def resolve_task_selection(value, choices):
-    """Resolve a displayed index or exact task name; other text is a new task."""
+    """Resolve a displayed index or exact task ID; other text is a new task."""
     answer = str(value or "").strip()
     if not answer:
         raise ValueError(
             "Enter a task number, task name, path, or new task description."
         )
-    head, separator, remainder = answer.partition(" ")
-    suffix = remainder.strip() if separator else ""
+    lexer = shlex.shlex(answer, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        head = next(lexer)
+    except (ValueError, StopIteration):
+        return answer
+    suffix = answer[lexer.instream.tell():].strip()
     if head.isdecimal():
         if suffix and "=" not in suffix:
             return answer
