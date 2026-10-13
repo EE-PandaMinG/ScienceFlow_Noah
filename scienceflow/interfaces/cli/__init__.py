@@ -397,6 +397,11 @@ from scienceflow.interfaces.cli.commands.run.repl import repl
 from scienceflow.interfaces.cli.commands.run.task import prep, run
 from scienceflow.interfaces.cli.commands.run.tui import tui
 
+_ADVANCED_COMMANDS = {
+    "prep", "repl", "parallel", "monitor", "monitor-trace",
+    "resource-summary", "replay-prepare",
+}
+
 for _command in (
     prep,
     run,
@@ -412,11 +417,13 @@ for _command in (
     resource_summary_cmd,
     replay_prepare_cmd,
 ):
+    _command.hidden = _command.name in _ADVANCED_COMMANDS
     main.add_command(_command)
 
 
-# Keep ScienceFlow research commands independent of the embedded InquiryCraft CLI.
-# Both ScienceFlow chat entries use the same workspace-local session namespace.
+# Additive composition point: existing ScienceFlow commands keep their exact names and
+# handlers, while ``scienceflow agent ...`` exposes the independent InquiryCraft CLI using
+# ScienceFlow supplies its structured model registry while InquiryCraft owns the CLI.
 from inspect import signature as _call_signature
 
 from inquirycraft.cli import create_cli as _create_inquirycraft_cli
@@ -429,30 +436,12 @@ _inquirycraft_cli_options: dict[str, Any] = {
     "model_config_default": Path("~/.config/scienceflow/models.json"),
     "model_default_key": "code_models",
 }
-_inquirycraft_parameters = _call_signature(_create_inquirycraft_cli).parameters
-if "include_tui" in _inquirycraft_parameters:
+if "include_tui" in _call_signature(_create_inquirycraft_cli).parameters:
     _inquirycraft_cli_options["include_tui"] = False
-if "repl_prompt" in _inquirycraft_parameters:
-    _inquirycraft_cli_options["repl_prompt"] = "scienceflow> "
-if "session_namespace" in _inquirycraft_parameters:
-    from inquirycraft.cli.sessions import register_session_commands as _register_session_commands
 
-    _inquirycraft_cli_options["session_namespace"] = ".scienceflow"
-    _register_session_commands(main, ".scienceflow", None)
-    main.add_command(
-        plural_cli_options(_create_inquirycraft_cli(**_inquirycraft_cli_options)),
-        name="agent",
-    )
-else:
-    @click.command("agent", context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
-    def unavailable_agent():
-        """Generic agent commands require InquiryCraft workspace session APIs."""
-        raise click.ClickException(
-            "ScienceFlow agent requires an InquiryCraft build with workspace session APIs. "
-            "Install the matching InquiryCraft release before using agent commands."
-        )
-
-    main.add_command(unavailable_agent)
+_agent_command = plural_cli_options(_create_inquirycraft_cli(**_inquirycraft_cli_options))
+_agent_command.hidden = True
+main.add_command(_agent_command, name="agent")
 
 
 from scienceflow.interfaces.cli.user_config import (

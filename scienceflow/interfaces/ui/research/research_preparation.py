@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
-from inspect import signature
 
 from scienceflow.research.onboarding import OnboardingState
 from scienceflow.research.onboarding.support.preparation import (
@@ -24,42 +23,91 @@ from scienceflow.research.onboarding.support.task_defaults import (
 )
 
 from .control.notices import research_notice
+from .preparation import run_preparation_task
 
 
 class ResearchPreparation:
     def __init__(self, interaction):
         self.owner = interaction
         self.task = None
-        self.question = ''
-        self.validation_error = ''
-        self.validated_command = ''
+        self.question = ""
+        self.validation_error = ""
+        self.validated_command = ""
         self.validation_samples = {}
 
-    async def begin(self, host, answer: str = '') -> bool:
+    async def locate(self, host, constraints):
+        """Keep the editor responsive while resolving a natural-language location."""
+        await host.notice("Checking task execution location… /cancel returns to chat.")
+        self.task = asyncio.create_task(self._locate(host, constraints))
+
+    async def _locate(self, host, constraints):
+        from .preparation.location import resolve_natural_location
+
+        try:
+            root = await resolve_natural_location(self.owner, host, constraints)
+            await self.owner._start(constraints, host, execution_root=root)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            await host.notice(f"Cannot prepare task location: {exc}")
+        finally:
+            if self.task is asyncio.current_task():
+                self.task = None
+
+    async def begin(self, host, answer: str = "") -> bool:
         session = self.owner.session
-        if not callable(getattr(host, 'run_host_task', None)) or session is None:
+        if not callable(getattr(host, "run_host_task", None)) or session is None:
             return False
-        if self.task is not None and not self.task.done():
-            await host.notice('Reading task materials and checking the evaluator. Use /cancel to stop preparation.')
+        if (
+            self.task is not None
+            and self.task is not asyncio.current_task()
+            and not self.task.done()
+        ):
+            await host.notice(
+                "Reading task materials and checking the evaluator. Use /cancel to stop preparation."
+            )
             return True
         if host.busy:
-            await host.notice('Finish or cancel the current chat request before preparing research.')
+            await host.notice(
+                "Finish or cancel the current chat request before preparing research."
+            )
+            return True
+        from .preparation.location import extract_execution_root
+        from scienceflow.runtime.parallel.location import resolve_local_root
+
+        try:
+            answer, requested_root = extract_execution_root(answer)
+            if (
+                requested_root
+                and str(resolve_local_root(self.owner.workspace, requested_root))
+                != session.draft.execution_root
+            ):
+                raise ValueError(
+                    "Task location is already allocated. Use /cancel, then start with workspace=NEW_ROOT."
+                )
+        except ValueError as exc:
+            session.state = OnboardingState.ASKING
+            session.preflight_report = None
+            self.owner.files = self.owner.preflight = None
+            await host.notice(str(exc))
             return True
         session.state = OnboardingState.ASKING
         session.preflight_report = None
         self.owner.files = self.owner.preflight = None
-        host.set_host_status('long research · preparing')
+        host.set_host_status("long research · preparing")
         if session.draft.registered_task:
             await research_notice(
                 host,
-                'Loading registered task and checking runtime settings…',
+                "Loading registered task and checking runtime settings…",
             )
         else:
             await research_notice(
                 host,
-                'Preparing task: reading descriptions and checking missing information…',
+                "Preparing task: reading descriptions and checking missing information…",
             )
-        prepare = self._prepare_registered if session.draft.registered_task else self._prepare
+        prepare = (
+            self._prepare_registered if session.draft.registered_task else self._prepare
+        )
         self.task = asyncio.create_task(prepare(host, session, answer))
         return True
 
@@ -94,7 +142,7 @@ class ResearchPreparation:
             await research_notice(
                 host,
                 f"配置未通过：{exc}\n"
-                f"{self.question or '请修正后重试；/cancel 返回聊天。'}"
+                f"{self.question or '请修正后重试；/cancel 返回聊天。'}",
             )
         finally:
             if self.owner.session is session:
@@ -117,36 +165,71 @@ class ResearchPreparation:
     async def _prepare(self, host, session, answer):
         try:
             for attempt in range(2):
-                prompt = preparation_prompt(session.draft, answer, self.question, getattr(self.owner, "task_workspace", self.owner.workspace),
-                                            validation_error=self.validation_error)
-                if getattr(self.owner, "task_workspace", self.owner.workspace) != self.owner.workspace:
+                prompt = preparation_prompt(
+                    session.draft,
+                    answer,
+                    self.question,
+                    getattr(self.owner, "task_workspace", self.owner.workspace),
+                    validation_error=self.validation_error,
+                )
+                if (
+                    getattr(self.owner, "task_workspace", self.owner.workspace)
+                    != self.owner.workspace
+                ):
                     prompt += f"\nResolve user-supplied relative input paths against {self.owner.workspace}. Write new preparation artifacts only inside {self.owner.task_workspace}."
-                managed = self.owner._managed if hasattr(self.owner, '_managed') else None
-                if managed is not None and hasattr(managed, 'rows'):
-                    pools = [{'workspace': r.get('control_workspace'), 'resources': r.get('resource_claims') or
-                              {k: (r.get('draft') or {}).get(k) for k in ('cpu_list', 'gpu_list')}}
-                             for r in managed.rows.values() if r.get('alive')]
+                managed = (
+                    self.owner._managed if hasattr(self.owner, "_managed") else None
+                )
+                if managed is not None and hasattr(managed, "rows"):
+                    pools = [
+                        {
+                            "workspace": r.get("control_workspace"),
+                            "resources": r.get("resource_claims")
+                            or {
+                                k: (r.get("draft") or {}).get(k)
+                                for k in ("cpu_list", "gpu_list")
+                            },
+                        }
+                        for r in managed.rows.values()
+                        if r.get("alive")
+                    ]
                     prompt += f"\nOther active managed tasks reserve these pools: {pools!r}. Choose non-overlapping resources."
-                options = ({'show_response': False}
-                           if 'show_response' in signature(host.run_host_task).parameters else {})
-                result = await host.run_host_task(prompt, **options)
+                result = await run_preparation_task(self.owner, host, prompt)
                 if self.owner.session is not session:
                     return
                 try:
-                    fields, question, summary, validation = parse_preparation(result, session.draft, getattr(self.owner, "task_workspace", self.owner.workspace))
+                    fields, question, summary, validation = parse_preparation(
+                        result, session.draft, self.owner.workspace
+                    )
                 except ValueError as exc:
                     self.validation_error = str(exc)
                     if attempt:
                         raise
-                    await host.notice('准备配置未通过校验，已将原因反馈给模型，正在自动纠正一次…')
+                    await host.notice(
+                        "准备配置未通过校验，已将原因反馈给模型，正在自动纠正一次…"
+                    )
                 else:
-                    self.validation_error = ''
+                    self.validation_error = ""
                     break
             candidate = replace(session.draft, **fields)
-            if not candidate.registered_task and candidate.artifact_command and (not question or validation):
-                await host.notice('Checking evaluator with valid and invalid sample artifacts…')
-                samples = validation or (self.validation_samples if candidate.artifact_command == self.validated_command else {})
-                await validate_evaluator(candidate.artifact_command, samples, getattr(self.owner, "task_workspace", self.owner.workspace))
+            if (
+                not candidate.registered_task
+                and candidate.artifact_command
+                and (not question or validation)
+            ):
+                await host.notice(
+                    "Checking evaluator with valid and invalid sample artifacts…"
+                )
+                samples = validation or (
+                    self.validation_samples
+                    if candidate.artifact_command == self.validated_command
+                    else {}
+                )
+                await validate_evaluator(
+                    candidate.artifact_command,
+                    samples,
+                    getattr(self.owner, "task_workspace", self.owner.workspace),
+                )
                 self.validation_samples = samples
                 self.validated_command = candidate.artifact_command
             session.revise(fields)
@@ -155,15 +238,24 @@ class ResearchPreparation:
                 and session.ready_for_preflight
                 and may_defer_metric_direction(session.draft)
             ):
-                question = ''
+                question = ""
             if not session.draft.registered_task and self.validated_command:
                 # The prepared command has the JSON contract exercised above.
                 session.draft.evaluator = {
-                    'enabled': True, 'backend': 'artifact_command', 'task_profile': 'artifact_command',
-                    'candidate': {'artifact': session.draft.artifact_path, 'artifact_kind': 'artifact'},
-                    'metric': {'name': session.draft.metric_name, 'lower_is_better': session.draft.lower_is_better,
-                               'type': 'exploratory', 'json_path': 'metric'},
-                    'command': {'evaluator_command': session.draft.artifact_command},
+                    "enabled": True,
+                    "backend": "artifact_command",
+                    "task_profile": "artifact_command",
+                    "candidate": {
+                        "artifact": session.draft.artifact_path,
+                        "artifact_kind": "artifact",
+                    },
+                    "metric": {
+                        "name": session.draft.metric_name,
+                        "lower_is_better": session.draft.lower_is_better,
+                        "type": "exploratory",
+                        "json_path": "metric",
+                    },
+                    "command": {"evaluator_command": session.draft.artifact_command},
                 }
             self.owner.files = self.owner.preflight = None
             self.question = question
@@ -176,26 +268,33 @@ class ResearchPreparation:
             elif session.ready_for_preflight:
                 await self._show_preflight(host, session)
             else:
-                await host.notice(await self.owner._decorate_prompt(session.next_prompt(), session.next_question()))
+                await host.notice(
+                    await self.owner._decorate_prompt(
+                        session.next_prompt(), session.next_question()
+                    )
+                )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             self.validation_error = f"{type(exc).__name__}: {exc}"
-            if isinstance(exc, ValueError) and 'required preparation JSON' in str(exc):
+            if isinstance(exc, ValueError) and "required preparation JSON" in str(exc):
                 await host.notice(result)
-            await host.notice(f'Preparation could not complete: {type(exc).__name__}: {exc}\n'
-                              'Provide missing information or ask to retry. /cancel returns to chat.')
+            await host.notice(
+                f"Preparation could not complete: {type(exc).__name__}: {exc}\n"
+                "Provide missing information or ask to retry. /cancel returns to chat."
+            )
         finally:
             if self.owner.session is session:
                 self.owner._set_status(host)
 
     async def _show_preflight(self, host, session):
         summary = draft_summary(session.draft)
-        preview = getattr(self.owner._managed, 'resource_preview', None)
+        preview = getattr(self.owner._managed, "resource_preview", None)
         if callable(preview):
             allocation = preview(session.draft)
             if allocation:
-                summary = '\n'.join((*summary.splitlines()[:2], allocation))
+                summary = "\n".join((*summary.splitlines()[:2], allocation))
+        summary += f"\nWorkspace · {self.owner.task_workspace}"
         await research_notice(host, summary)
         await self.owner._preflight(host)
 
@@ -204,7 +303,7 @@ class ResearchPreparation:
             self.task.cancel()
             await asyncio.gather(self.task, return_exceptions=True)
         self.task = None
-        self.question = ''
-        self.validation_error = ''
-        self.validated_command = ''
+        self.question = ""
+        self.validation_error = ""
+        self.validated_command = ""
         self.validation_samples = {}

@@ -17,11 +17,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-# The default install includes the CPU data/evaluator and reporting stack. GPU training,
-# benchmark integrations, and model-specific packages remain optional extras.
+# The default install is the Light, CPU-only ScienceFlow control plane. The Full product
+# profile and internal task/model profiles are extras so deployments that call an external
+# OpenAI-compatible provider (including vLLM) do not need CUDA, PyTorch, MLEBench, or tests.
 dependencies = [
     "python-dotenv>=1.0",
     "pydantic>=2.0",
@@ -43,12 +43,8 @@ dependencies = [
     # tenacity loads tornadoweb when `import tornado` succeeds; a leftover empty tornado
     # namespace in site-packages would cause ImportError: gen
     "tornado>=6.4",
-    # Deterministic local PDF reports without a browser or external command.
-    "reportlab>=4.2,<5",
-    # Used by the built-in CPU evaluators, dataset previews, and submission checks.
-    "numpy>=1.26",
-    "pandas>=2.2",
-    "scipy>=1.12",
+    # Markdown rendering for local HTML reports; PDF uses browser printing.
+    "markdown-it-py>=3,<5",
 ]
 
 [project.urls]
@@ -59,6 +55,9 @@ Issues = "https://github.com/science-learner/ScienceFlow/issues"
 
 [project.optional-dependencies]
 ml = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.12",
     "scikit-learn>=1.3",
     "openpyxl>=3.1",
     "matplotlib>=3.8",
@@ -68,6 +67,7 @@ ml = [
     "lightgbm>=4.0",
 ]
 gpu = [
+    "numpy>=1.26",
     "tabpfn>=7.0",
     "torch>=2.11",
     "torchvision>=0.20",
@@ -99,11 +99,13 @@ inquirycraft-mcp = [
 ]
 scientific-design = [
     "cloudpickle>=3.0",
-    "datasets>=5.0",
     "sci-modeling-bench==0.10.0",
 ]
 # Compatibility profile matching the historical all-in-one ScienceFlow environment.
 full = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.12",
     "scikit-learn>=1.3",
     "openpyxl>=3.1",
     "matplotlib>=3.8",

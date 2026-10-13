@@ -49,15 +49,13 @@ from scienceflow.research.control.execution_value.evidence.quick_test import (
     strip_bash_tool_prefix,
 )
 from scienceflow.research.quality.fullrun.snapshot import (
+    _agent_gate_policy_context,
+    _legacy_score_gate_enabled_for_agent,
     _load_node_context,
     _node_exec_budget_sec_for_cost_report,
+    _score_contract_user_message,
     archive_submission_history_snapshot,
     submission_rows_plausible_for_progressive_bare,
-)
-from scienceflow.research.quality.gate.score_contract import (
-    agent_gate_policy_context as _agent_gate_policy_context,
-    legacy_score_gate_enabled_for_agent as _legacy_score_gate_enabled_for_agent,
-    score_contract_user_message as _score_contract_user_message,
 )
 
 logger = logging.getLogger("scienceflow")

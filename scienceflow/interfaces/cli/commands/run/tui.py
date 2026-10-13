@@ -13,15 +13,13 @@ from inquirycraft.runtime import AgentRuntime
 
 from scienceflow.foundation.config.llm.model_registry import load_model_registry
 from scienceflow.foundation.config.runtime.llm_lists import values
+from scienceflow.interfaces.cli.user_config import set_tui_state_defaults
 from scienceflow.interfaces.ui.llm_cli import TuiPoolRuntimeFactory, plural_cli_options
 from scienceflow.interfaces.ui.logo import COMPACT_LOGO_PIXELS, LOGO_PIXELS
 from scienceflow.interfaces.ui.long_research import LongResearchInteraction
-from scienceflow.interfaces.ui.research.control.permission import (
-    TuiPermissionInteraction,
-)
 
 
-def _pin_tui_chat_model(command: click.Command, runtime_factory: TuiPoolRuntimeFactory) -> click.Command:
+def _pin_tui_chat_model(command: click.Command) -> click.Command:
     """Keep ordinary TUI chat on one alias while preserving endpoint failover."""
 
     callback = command.callback
@@ -30,29 +28,28 @@ def _pin_tui_chat_model(command: click.Command, runtime_factory: TuiPoolRuntimeF
 
     @wraps(callback)
     def invoke(**kwargs):
-        with runtime_factory.permission_session():
-            aliases = values(kwargs.get("model"))
-            if not aliases:
-                registry = load_model_registry(Path(kwargs["model_config"]))
-                aliases = list(registry.default_aliases("code_models")[:1])
-            if len(aliases) != 1:
-                raise click.ClickException(
-                    "TUI chat accepts exactly one model alias; switch it later with /models."
-                )
-            kwargs["model"] = aliases[0]
-            return callback(**kwargs)
+        aliases = values(kwargs.get("model"))
+        if not aliases:
+            registry = load_model_registry(Path(kwargs["model_config"]))
+            aliases = list(registry.default_aliases("code_models")[:1])
+        if len(aliases) != 1:
+            raise click.ClickException(
+                "TUI chat accepts exactly one model alias; switch it later with /models."
+            )
+        kwargs["model"] = aliases[0]
+        return callback(**kwargs)
 
     command.callback = invoke
     for param in command.params:
         if param.name == "model":
-            param.help = (
-                "One chat model alias from models.json; defaults to the first code model."
-            )
+            param.help = "One chat model alias from models.json; defaults to the first code model."
     return command
 
 
 def build_tui_command(*, initial_command: str = "") -> click.Command:
     """Reuse InquiryCraft's TUI command while injecting one ScienceFlow interceptor."""
+
+    import inquirycraft.tui as tui_host
 
     required_host_parameters = {
         "include_tui",
@@ -60,17 +57,27 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
         "model_default_key",
         "tui_branding",
         "tui_interceptor_factory",
-        "session_namespace",
     }
-    if (not required_host_parameters.issubset(signature(create_cli).parameters)
-            or not callable(getattr(AgentRuntime, 'compact_context', None))):
+    missing = []
+    if not hasattr(tui_host, "TuiInputPreprocessor"):
+        missing.append("pre-history input hook (TuiInputPreprocessor)")
+    missing_parameters = (
+        required_host_parameters - signature(create_cli).parameters.keys()
+    )
+    if missing_parameters:
+        missing.append("CLI host parameters: " + ", ".join(sorted(missing_parameters)))
+    if not callable(getattr(AgentRuntime, "compact_context", None)):
+        missing.append("manual context compaction (AgentRuntime.compact_context)")
+    if missing:
 
         @click.command("tui")
         def unavailable_tui():
             """Start the full-screen interface (requires InquiryCraft TUI host APIs)."""
             raise click.ClickException(
-                "ScienceFlow TUI requires an InquiryCraft build with workspace session APIs. "
-                "Install the matching InquiryCraft release before starting TUI."
+                "ScienceFlow TUI cannot start: InquiryCraft is missing "
+                + "; ".join(missing)
+                + ". "
+                + "Install inquirycraft[openai,tui]==0.9.2 before starting TUI."
             )
 
         return unavailable_tui
@@ -80,11 +87,13 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
     # Optional presentation fields remain signature-filtered for host extensions.
     branding_parameters = signature(TuiBranding).parameters
     presentation_options = {
-        key: value for key, value in {
+        key: value
+        for key, value in {
             "prompt_placeholder": "Type a message · /long-research · /help",
             "notice_background": "#3B4048",
             "fold_system_notices": True,
-        }.items() if key in branding_parameters
+        }.items()
+        if key in branding_parameters
     }
 
     try:
@@ -118,19 +127,18 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
             version=package_version,
             welcome_text=(
                 "Long Research · parallel workers explore, evaluate, and preserve the best result.\n"
-                "Chat · first code model with endpoint failover · shell denied "
-                "(/permission; 120s default)\n"
-                "Chat history: scienceflow tui --resume · research tasks: /resume TASK_ID"
+                "Start with /long-research · monitor with /tasks · resume a task with /resume N"
             ),
             welcome_emphasis=("Long Research", "parallel workers", "best result"),
             **presentation_options,
         ),
-        tui_interceptor_factory=lambda workspace: TuiPermissionInteraction(
-            LongResearchInteraction(
-                Path(workspace), managed=True, multi_task=True, initial_command=initial_command
-            ), runtime_factory.permissions,
+        tui_interceptor_factory=lambda workspace: LongResearchInteraction(
+            Path(workspace),
+            managed=True,
+            multi_task=True,
+            initial_command=initial_command,
+            preparation_runtime_factory=runtime_factory,
         ),
-        session_namespace=".scienceflow",
     )
     command = host.commands.get("tui")
     if command is None:  # pragma: no cover - defensive contract guard
@@ -145,7 +153,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
                 "and return the requested JSON contract. Do not start research workers "
                 "during preparation."
             )
-    return _pin_tui_chat_model(plural_cli_options(command), runtime_factory)
+    return _pin_tui_chat_model(set_tui_state_defaults(plural_cli_options(command)))
 
 
 tui = build_tui_command()

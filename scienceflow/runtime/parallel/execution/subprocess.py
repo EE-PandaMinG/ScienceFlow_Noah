@@ -22,14 +22,10 @@ from scienceflow.runtime.parallel.state.subprocess_runtime import (
 
 @staticmethod
 def child_cli_argv(spec: TaskSpec) -> list[str]:
-    """Build ``python -m scienceflow.interfaces.cli …`` argv (no ``taskset`` prefix); used by tests and `_exec_subprocess`."""
+    """Build child argv without exposing worker execution as a public command."""
     child_python, _child_bin = resolve_project_python()
-    argv: list[str] = [
-        child_python,
-        "-m",
-        "scienceflow.interfaces.cli",
-    ]
     if spec.phase == "prep":
+        argv: list[str] = [child_python, "-m", "scienceflow.interfaces.cli"]
         argv.extend(
             [
                 "prep",
@@ -44,10 +40,13 @@ def child_cli_argv(spec: TaskSpec) -> list[str]:
         if spec.config:
             argv.extend(["--config", spec.config])
     else:
+        argv = [
+            child_python,
+            "-m",
+            "scienceflow.runtime.parallel.execution.task_worker",
+        ]
         argv.extend(
             [
-                "run",
-                "--task",
                 spec.task,
                 "--workspace",
                 spec.workspace,
@@ -66,10 +65,13 @@ def child_cli_argv(spec: TaskSpec) -> list[str]:
             )
     return argv
 
+
 async def _exec_subprocess(self, spec: TaskSpec, log_file: str) -> tuple[int, str]:
     command, cpu_list = _build_parallel_command(spec, self.child_cli_argv(spec))
     env = _build_child_env(spec, cpu_list)
-    resolved_gpu, assigned_gpus, gpu_disabled = await _resolve_gpu_assignment(self, spec, env)
+    resolved_gpu, assigned_gpus, gpu_disabled = await _resolve_gpu_assignment(
+        self, spec, env
+    )
     _apply_resource_env(
         env,
         spec,

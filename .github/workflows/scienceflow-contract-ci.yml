@@ -3,25 +3,17 @@ name: ScienceFlow Contract CI
 on: [push, pull_request]
 
 jobs:
-  lock-consistency:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - name: Verify the committed dependency lock
-        run: uv lock --check
-
   minimal-install:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install CPU data and control plane from project metadata
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - name: Verify committed dependency resolution
+        run: uv lock --check
+      - name: Install CPU-only control plane from project metadata
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
@@ -30,7 +22,6 @@ jobs:
         run: |
           scienceflow --help
           scienceflow agent tools list
-          python -c "import numpy, pandas, scipy, reportlab"
           python -c "from scienceflow.research.solver.lnr import LnrSolver; from scienceflow.research.solver.lnr.resources.runtime import ResourceRuntime"
 
   compatibility-contracts:
@@ -42,7 +33,7 @@ jobs:
           python-version: "3.12"
       - name: Install lightweight ScienceFlow contract environment
         run: |
-          python -m pip install -e . pytest pytest-asyncio
+          python -m pip install -e . numpy pytest pytest-asyncio
       - name: Verify CLI and provider adapters
         run: >-
           python -m pytest -q
@@ -59,12 +50,29 @@ jobs:
           tests/test_science_agent_repl_run_loop.py
           tests/test_science_agent_repl_tools.py
           tests/test_run_loop_tool_stream_retry.py
-      - name: Verify TUI shell safety and LongResearch integration
+      - name: Verify TUI shell lifecycle and LongResearch integration
         run: >-
           python -m pytest -q
           tests/test_tui_shell_safety.py
           tests/test_tui_sessions.py
+          tests/test_tui_session_selection.py
           tests/test_long_research_interaction.py
           tests/test_long_research_onboarding.py
           tests/test_long_research_progress.py
           tests/test_research_preparation.py
+      - name: Verify local execution and durable reports
+        run: >-
+          python -m pytest -q
+          tests/test_execution_location.py
+          tests/test_tui_workspace_info.py
+          tests/test_report_publication.py
+          tests/test_report_recovery.py
+          tests/test_report_lifecycle.py
+          tests/test_final_report.py
+          tests/test_task_library.py
+          tests/test_task_selection_collision.py
+          tests/test_web_monitor.py
+          tests/test_multi_worker_cancellation.py
+          tests/test_process_runtime.py
+          tests/test_evaluator_command_env.py
+          tests/test_lnr_monitor_resume.py

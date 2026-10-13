@@ -17,13 +17,11 @@ from scienceflow.research.quality.fullrun.snapshot import (
     _maybe_write_bare_run_tail_snapshot as _maybe_write_bare_run_tail_snapshot,
     _read_last_jsonl_tool_content as _read_last_jsonl_tool_content,
     _rewrite_last_jsonl_tool_content as _rewrite_last_jsonl_tool_content,
+    _score_contract_errors as _score_contract_errors,
+    _score_contract_user_message as _score_contract_user_message,
     _validate_llm_metric_interpretation as _validate_llm_metric_interpretation,
     archive_submission_history_snapshot as archive_submission_history_snapshot,
     submission_rows_plausible_for_progressive_bare as submission_rows_plausible_for_progressive_bare,
-)
-from scienceflow.research.quality.gate.score_contract import (
-    score_contract_errors as _score_contract_errors,
-    score_contract_user_message as _score_contract_user_message,
 )
 
 __all__ = [
@@ -37,6 +35,4 @@ __all__ = [
     "_maybe_write_bare_run_tail_snapshot",
     "_mirror_embedded_full_run_to_interaction_log",
     "_run_mlebench_validation_after_embedded_full_run",
-    "_score_contract_errors",
-    "_score_contract_user_message",
 ]

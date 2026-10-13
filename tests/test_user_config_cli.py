@@ -118,6 +118,32 @@ def test_missing_explicit_file_reports_clear_error_without_running(tmp_path):
     assert "Configuration file does not exist" in result.output
 
 
+def test_tui_state_defaults_live_outside_install_directory(monkeypatch, tmp_path):
+    import click
+
+    from scienceflow.interfaces.cli.user_config import set_tui_state_defaults
+
+    @click.command()
+    @click.option("--session-log")
+    def command(session_log):
+        click.echo(session_log)
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.chdir(tmp_path)
+    set_tui_state_defaults(command)
+    first = CliRunner().invoke(command)
+    assert first.exit_code == 0, first.output
+    first_path = Path(first.output.strip())
+    assert first_path.parent.parent == tmp_path / ".scienceflow/sessions"
+    first_path.write_text("")
+    second = CliRunner().invoke(command)
+    assert second.exit_code == 0
+    assert Path(second.output.strip()) != first_path
+    restored = CliRunner().invoke(command, ["--resume"])
+    assert restored.exit_code == 0
+    assert Path(restored.output.strip()) == first_path
+
+
 def test_environment_options_keep_click_boolean_and_numeric_types(monkeypatch):
     captured = {}
     monkeypatch.setattr(

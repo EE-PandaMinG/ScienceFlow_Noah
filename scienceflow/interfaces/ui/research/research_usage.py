@@ -186,8 +186,9 @@ class ResearchUsage:
         cache = (f'{cache_hits/cache_input:.0%}' + (' (partial)' if incomplete else '')) if cache_input else '—'
         return f'Research usage · in {_tokens(incoming)} / out {_tokens(outgoing)} · Cache {cache} · Cost {self.cost_text()}'
 
-    def details(self):
-        return self.summary() + '\n' + '\n'.join(
+    def details(self, *, include_summary=True):
+        heading = self.summary() + '\n' if include_summary else ''
+        return heading + '\n'.join(
             f'{worker} · {model} · input {_tokens(values[0])} · output {_tokens(values[1])} · cached {_tokens(values[2])}'
             for (worker, model), values in self.totals.items()) + (
                 '\nPricing: models.json; USD estimate, not a bill.'

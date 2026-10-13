@@ -1,5 +1,4 @@
 """Long Horizon Repl contracts: metric."""
-# ruff: noqa: F405 - this split contract intentionally consumes the shared fixture API.
 
 from __future__ import annotations
 
@@ -7,12 +6,6 @@ from tests._long_horizon_repl_support import *  # noqa: F401,F403
 
 from scienceflow.research.solver.lnr.orchestration.coordinator.lifecycle.context.coordination import (
     _parse_stage_commit_text_block,
-)
-from scienceflow.research.solver.lnr.orchestration.coordinator.evaluation import (
-    metric_projection,
-)
-from scienceflow.research.solver.lnr.orchestration.coordinator.evaluation.profile import (
-    EvaluationProfileOwner,
 )
 
 
@@ -203,7 +196,7 @@ X_full = pd.concat([train, val], axis=0)
         encoding="utf-8",
     )
 
-    event = metric_projection._metric_event_from_workspace(solver)
+    event = solver._metric_event_from_workspace()
 
     assert event is not None
     assert event["reported_val_score"] == 0.0004834944942880695
@@ -260,7 +253,7 @@ def test_metric_semantics_system_overrides_declared_holdout_replay(tmp_path: Pat
         encoding="utf-8",
     )
 
-    event = metric_projection._metric_event_from_workspace(solver)
+    event = solver._metric_event_from_workspace()
 
     assert event is not None
     assert event["metric_protocol"] == "holdout"
@@ -304,7 +297,7 @@ print('Retraining on full train+val for submission')
         encoding="utf-8",
     )
 
-    event = metric_projection._metric_event_from_workspace(solver)
+    event = solver._metric_event_from_workspace()
 
     assert event is not None
     assert event["val_score_type"] == "holdout"
@@ -328,8 +321,7 @@ def test_lhr_primary_gate_fails_closed_when_evaluator_emits_no_outcome(tmp_path:
     solver.deadline = float("inf")
     solver.gate_service = SimpleNamespace(evaluate=lambda _request: [])
 
-    facts = EvaluationProfileOwner._record_evaluator_stage_events(
-        solver,
+    facts = solver._record_evaluator_stage_events(
         stage_id="S03",
         metric_event={
             "metric_value": 0.8,

@@ -49,17 +49,30 @@ async def run_multi_worker(services: CoordinatorServices) -> dict[str, Any]:
             LegacyRunStatus.RUNNING,
         )
     )
+    worker_group = asyncio.gather(*tasks)
     try:
-        worker_results = await asyncio.gather(*tasks)
+        completed, _ = await asyncio.wait(
+            (worker_group, live_aggregation_task),
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if live_aggregation_task in completed:
+            await live_aggregation_task
+            if worker_group not in completed:
+                raise RuntimeError("Live worker aggregation stopped unexpectedly.")
+        worker_results = await worker_group
     except BaseException:
+        # gather propagates the first exception without stopping sibling workers.
+        # Await their cancellation hooks before closing shared merge resources.
+        for task in tasks:
+            if not task.done() and not task.cancelling():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(worker_group, return_exceptions=True)
         await services.close_merge_owner_agent()
         raise
     finally:
         live_aggregation_task.cancel()
-        try:
-            await live_aggregation_task
-        except asyncio.CancelledError:
-            pass
+        await asyncio.gather(live_aggregation_task, return_exceptions=True)
     services.aggregate_worker_state(n_workers, LegacyRunStatus.REDUCING)
     try:
         candidates: list[dict[str, Any]] = []

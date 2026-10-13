@@ -35,7 +35,10 @@ def test_page_bundles_packaged_assets_and_real_version():
     assert "Math.max(10000" in PAGE
     assert "function currentTaskRoute" in PAGE
     assert "Run monitor" in PAGE and "Research report" in PAGE
-    assert "Download PDF" in PAGE
+    assert "Save PDF" in PAGE
+    assert "choose Save as PDF" in PAGE
+    assert "frame.contentWindow.print()" in PAGE
+    assert '"allow-same-origin allow-modals"' in PAGE
     assert DEFAULT_REFRESH_SEC == 10
 
 
@@ -625,7 +628,7 @@ def test_http_serves_only_generated_report_formats(tmp_path):
     try:
         metadata = json.loads(fetch(server, "test-token/task/1/report"))
         assert metadata["available"] is True
-        assert fetch(server, "test-token/task/1/report.pdf").startswith(b"%PDF-")
+        assert "report.pdf" not in metadata["formats"]
         with opener.open(
             f"http://127.0.0.1:{server.server_port}/test-token/", timeout=2
         ) as response:
@@ -645,6 +648,7 @@ def test_http_serves_only_generated_report_formats(tmp_path):
             assert response.headers["Content-Disposition"].startswith("attachment;")
         for path in (
             "test-token/task/1/report.json",
+            "test-token/task/1/report.pdf",
             "test-token/task/1/report.pdf/../../.env",
         ):
             with pytest.raises(urllib.error.HTTPError) as error:

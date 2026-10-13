@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -24,9 +25,11 @@ from scienceflow.runtime.parallel.service import ParallelRunSummary
 
 def test_research_preparation_prompt_is_not_a_chat_round():
     recognize = LongResearchInteraction.is_host_task_prompt
-    assert recognize('Prepare a ScienceFlow research task, NOT the research run itself.\nInterpret the request')
-    assert not recognize('Prepare a ScienceFlow research task')
-    assert not recognize('/long-research circle-packing')
+    assert recognize(
+        "Prepare a ScienceFlow research task, NOT the research run itself.\nInterpret the request"
+    )
+    assert not recognize("Prepare a ScienceFlow research task")
+    assert not recognize("/long-research circle-packing")
     assert not recognize(None)
 
 
@@ -59,7 +62,7 @@ class FakeHost:
 def _complete_command(data: Path) -> str:
     return (
         "/long-research task='optimize a new dataset' "
-        f"data={data} metric=accuracy direction=max "
+        f"data={shlex.quote(str(data))} metric=accuracy direction=max "
         "artifact=artifacts/result.json command='python evaluate.py' "
         "gpu=cpu workers=2 cpu=0-7 duration=10m"
     )
@@ -98,6 +101,7 @@ async def test_plain_text_passes_through_and_busy_command_does_not_snapshot(
     host = FakeHost(busy=True)
 
     assert await interaction.try_handle("ordinary text", host) is False
+    assert await interaction.try_handle('/home/user/data.csv', host) is False
     assert await interaction.try_handle("/long-research", host) is True
 
     assert host.snapshot_calls == 0
@@ -128,8 +132,8 @@ async def test_global_visual_commands_remain_owned_by_inquirycraft(
 
     assert await interaction.try_handle("/help", host) is False
     assert await interaction.try_handle("/clear", host) is False
-    assert await interaction.try_handle("/quit", host) is False
-    assert interaction.session is not None
+    assert interaction.session is None
+    assert interaction._awaiting_task_target
 
 
 @pytest.mark.asyncio
@@ -139,7 +143,7 @@ async def test_onboarding_uses_detached_conversation_and_cancel_returns_to_chat(
     host = FakeHost(conversation=({"role": "user", "content": "model a dataset"},))
     interaction = LongResearchInteraction(tmp_path)
 
-    assert await interaction.try_handle("/long-research", host) is True
+    assert await interaction.try_handle("/long-research model a dataset", host) is True
     assert interaction.session is not None
     assert interaction.session.draft.task_text == "model a dataset"
     assert "dataset directory" in host.notices[-1]
@@ -155,9 +159,41 @@ async def test_underscore_command_alias_starts_onboarding(tmp_path: Path) -> Non
     host = FakeHost(conversation=({"role": "user", "content": "optimize"},))
     interaction = LongResearchInteraction(tmp_path)
 
-    assert await interaction.try_handle("/long_research", host) is True
+    assert await interaction.try_handle("/long_research optimize", host) is True
     assert interaction.session is not None
     assert host.statuses[-1].startswith("long research")
+
+
+@pytest.mark.asyncio
+async def test_empty_long_research_accepts_followup_task_choice(tmp_path: Path) -> None:
+    host = FakeHost()
+    interaction = LongResearchInteraction(tmp_path)
+    assert await interaction.try_handle("/long-research", host)
+    assert interaction._awaiting_task_target
+
+    assert await interaction.try_handle("circle-packing", host)
+    assert interaction.session is not None
+    assert interaction.session.draft.registered_task
+    assert not interaction._awaiting_task_target
+
+
+@pytest.mark.asyncio
+async def test_task_selection_accepts_absolute_paths_without_treating_them_as_commands(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    host = FakeHost()
+    interaction = LongResearchInteraction(tmp_path)
+    assert await interaction.try_handle("/long-research", host)
+    selected = []
+
+    async def start(target, host):
+        selected.append(target)
+
+    monkeypatch.setattr(interaction, "_start", start)
+    assert await interaction.try_handle(str(tmp_path), host)
+    assert selected == [str(tmp_path)]
+    assert not await interaction.try_handle("/help", host)
+    await interaction.aclose()
 
 
 @pytest.mark.asyncio
@@ -174,7 +210,7 @@ async def test_gpu_question_displays_existing_lightweight_probe(
         lambda: (GPUDevice(0, "GPU-test", 81920, 73728),),
     )
 
-    await interaction.try_handle("/long-research", host)
+    await interaction.try_handle("/long-research model a dataset", host)
     for answer in (
         str(data),
         "accuracy",
@@ -275,7 +311,7 @@ async def test_cancel_and_close_stop_owned_parallel_run(
 async def test_resource_monitor_is_closed_with_interaction(monkeypatch, tmp_path):
     from scienceflow.interfaces.ui.research.telemetry.resources import ResourceMonitor
 
-    monkeypatch.setattr(ResourceMonitor, 'sample', lambda self: 'Host · CPU 10%')
+    monkeypatch.setattr(ResourceMonitor, "sample", lambda self: "Host · CPU 10%")
     host = FakeHost()
     host.set_resource_status = lambda text: host.statuses.append(text)
     interaction = LongResearchInteraction(tmp_path)
@@ -285,7 +321,7 @@ async def test_resource_monitor_is_closed_with_interaction(monkeypatch, tmp_path
         if host.statuses:
             break
         await asyncio.sleep(0.01)
-    assert host.statuses == ['Host · CPU 10%']
+    assert host.statuses == ["Host · CPU 10%"]
     await interaction.aclose()
     assert task.done()
     assert interaction._resource_task is None
@@ -295,13 +331,13 @@ async def test_resource_monitor_is_closed_with_interaction(monkeypatch, tmp_path
 async def test_usage_resources_and_help_commands_without_research(tmp_path):
     interaction = LongResearchInteraction(tmp_path)
     host = FakeHost()
-    assert await interaction.try_handle('/research-usage', host)
-    assert 'No active research' in host.notices[-1]
-    assert await interaction.try_handle('/resources', host)
-    assert 'Resources unavailable' in host.notices[-1]
-    assert not await interaction.try_handle('/help', host)
-    assert '/research-usage' in host.notices[-1]
-    assert not await interaction.try_handle('/context', host)
+    assert await interaction.try_handle("/research-usage", host)
+    assert "No active research" in host.notices[-1]
+    assert await interaction.try_handle("/resources", host)
+    assert "Resources unavailable" in host.notices[-1]
+    assert not await interaction.try_handle("/help", host)
+    assert "/research-usage" in host.notices[-1]
+    assert not await interaction.try_handle("/context", host)
     assert {
         "/long-research",
         "/models",
@@ -317,45 +353,46 @@ def test_common_commands_prioritize_models_without_registering_aliases(tmp_path)
 
     interaction = LongResearchInteraction(tmp_path, managed=True, multi_task=True)
     assert interaction.tui_common_commands == (
-        '/models', '/long-research', '/tasks', '/status', '/stop', '/resume',
-        '/compact', '/web', '/help', '/cancel', '/quit',
+        "/models",
+        "/long-research",
+        "/tasks",
+        "/compact",
+        "/web",
+        "/help",
+        "/cancel",
     )
     registered = {spec.name for spec in interaction.tui_commands}
-    assert {'/attach', '/runs', '/select', '/resources', '/research-usage'} <= registered
-    assert not registered.intersection({'/header', '/q', '/exit'})
+    assert {"/attach", "/tasks", "/status", "/stop", "/resume"} <= registered
+    assert not {"/runs", "/select", "/resources", "/research-usage"}.intersection(registered)
+    assert not registered.intersection({"/header", "/q", "/exit"})
     completion = TuiCompletion()
     completion.register_commands(
         interaction.tui_commands, common_commands=interaction.tui_common_commands
     )
-    assert tuple(name.strip() for name, _ in completion._completion_matches('/')) == (
+    assert tuple(name.strip() for name, _ in completion._completion_matches("/")) == (
         interaction.tui_common_commands
     )
-    assert completion._completion_matches('/stat') == [
-        ('/status ', 'Task overview; /status N shows task details')
+    assert completion._completion_matches("/stat") == [
+        ("/status ", "Task overview; /status N shows task details")
     ]
-    for prefix, command in (
-        ('/att', '/attach'), ('/resou', '/resources'),
-        ('/research', '/research-usage'), ('/ru', '/runs'), ('/sel', '/select'),
-    ):
-        assert completion._completion_matches(prefix)[0][0].strip() == command
+    assert completion._completion_matches("/att")[0][0].strip() == "/attach"
+    for prefix in ("/resou", "/research", "/ru", "/sel"):
+        assert completion._completion_matches(prefix) == []
     plain = LongResearchInteraction(tmp_path)
-    assert '/models' == plain.tui_common_commands[0]
-    assert not {'/tasks', '/stop', '/resume'}.intersection(plain.tui_common_commands)
+    assert "/models" == plain.tui_common_commands[0]
+    assert not {"/tasks", "/stop", "/resume"}.intersection(plain.tui_common_commands)
 
 
 @pytest.mark.asyncio
-async def test_multi_task_help_groups_commands_and_explains_compatibility(tmp_path):
+async def test_multi_task_help_groups_primary_and_advanced_commands(tmp_path):
     interaction = LongResearchInteraction(tmp_path, managed=True, multi_task=True)
     host = FakeHost()
-    assert not await interaction.try_handle('/help', host)
+    assert not await interaction.try_handle("/help", host)
     help_text = host.notices[-1]
-    assert help_text.startswith('Model: /models')
-    assert 'Research:' in help_text
-    assert 'scienceflow tui --resume' in help_text
-    assert '/resume TASK_ID' in help_text
-    assert 'scienceflow resume RUN_ID' in help_text
-    assert 'Advanced · Research:' in help_text
-    assert 'Compatibility:' in help_text
+    assert help_text.startswith("Model: /models")
+    assert "Research:" in help_text
+    assert "Advanced · Research:" in help_text
+    assert "Compatibility:" not in help_text
     for spec in interaction.tui_commands:
         assert spec.name in help_text
     await interaction.aclose()
@@ -395,9 +432,9 @@ async def test_models_command_lists_aliases_without_exposing_keys(tmp_path):
     assert "Feedback" not in host.notices[-1]
     assert "secret-one" not in host.notices[-1]
     assert "secret-two" not in host.notices[-1]
-    assert interaction.tui_completions(
-        "/long-research circle code-models=f"
-    ) == [("/long-research circle code-models=fast", "Model alias")]
+    assert interaction.tui_completions("/long-research circle code-models=f") == [
+        ("/long-research circle code-models=fast", "Model alias")
+    ]
 
 
 @pytest.mark.asyncio
@@ -430,12 +467,22 @@ async def test_models_command_switches_only_the_chat_model(tmp_path):
     )
 
     class InteractiveHost(FakeHost):
+        def __init__(self):
+            super().__init__()
+            self.notifications = []
+
         def open_chat_model_selector(self, path, **kwargs):
             self.popup = (path, kwargs)
 
         async def switch_chat_models(self, path, **kwargs):
             self.switch = (path, kwargs)
             return kwargs["aliases"]
+
+        async def echo_user(self, text):
+            raise AssertionError("Model commands must not remain in the transcript")
+
+        def notify(self, message, *, timeout):
+            self.notifications.append((message, timeout))
 
     interaction = LongResearchInteraction(tmp_path)
     interaction.configure_model_registry(config, ())
@@ -446,9 +493,7 @@ async def test_models_command_switches_only_the_chat_model(tmp_path):
     assert popup_path == config
     assert popup["aliases"] == ("fast", "review")
     assert popup["current"] == ("fast", "review")
-    assert popup["config_hint"] == (
-        f"Config · {config} · edit, then reopen /models"
-    )
+    assert popup["config_hint"] == (f"Config · {config} · edit, then reopen /models")
 
     assert await interaction.try_handle("/models review policy=fixed", host)
     path, options = host.switch
@@ -458,6 +503,8 @@ async def test_models_command_switches_only_the_chat_model(tmp_path):
     assert interaction._selected_model_aliases == ("review",)
     assert interaction._selected_feedback_aliases == ("review",)
     assert interaction._model_selection == "fixed"
+    assert host.notifications == [("Chat model applied · review · Policy fixed", 3)]
+    assert host.notices == []
 
 
 @pytest.mark.asyncio
@@ -549,6 +596,7 @@ async def test_managed_long_research_loads_defaults_before_task_is_complete(tmp_
         ),
         encoding="utf-8",
     )
+
     class Managed:
         async def command(self, text, host):
             return False
@@ -679,7 +727,11 @@ async def test_managed_long_research_keeps_explicit_multiple_code_models(tmp_pat
     ],
 )
 async def test_research_snapshots_chat_model_with_explicit_role_precedence(
-    tmp_path, selection, options, expected_code, expected_feedback,
+    tmp_path,
+    selection,
+    options,
+    expected_code,
+    expected_feedback,
 ):
     config = tmp_path / "models.json"
     payload = {
@@ -707,14 +759,16 @@ async def test_research_snapshots_chat_model_with_explicit_role_precedence(
             return kwargs["aliases"]
 
     interaction = LongResearchInteraction(tmp_path / "workspace")
-    interaction.configure_model_registry(config, ("review",) if selection == "startup" else ())
+    interaction.configure_model_registry(
+        config, ("review",) if selection == "startup" else ()
+    )
     host = ModelHost()
     if selection == "picker":
         await interaction.try_handle("/models", host)
         host.on_applied(("review",))
     elif selection == "command":
         await interaction.try_handle("/models review", host)
-    data = tmp_path / "data"
+    data = tmp_path / "data with spaces"
     data.mkdir()
     (data / "sample.csv").write_text("x,y\n1,2\n", encoding="utf-8")
     await interaction.try_handle(_complete_command(data) + options, host)
@@ -722,7 +776,8 @@ async def test_research_snapshots_chat_model_with_explicit_role_precedence(
         assert interaction._awaiting_research_models
         assert "Research models · Code review · Feedback review" in host.notices[-1]
         await interaction.try_handle("default", host)
-    assert interaction.preflight is not None
+    assert interaction.preflight is not None, host.notices
+    assert interaction.preflight.ok, host.notices
     draft = interaction.session.draft
     assert draft.code_models == expected_code
     assert draft.feedback_models == expected_feedback
@@ -741,26 +796,26 @@ async def test_configuration_input_echo_precedes_response_without_duplication(tm
             self.entries = []
 
         async def echo_user(self, text):
-            self.entries.append(('user', text))
+            self.entries.append(("user", text))
 
         async def notice(self, text):
-            self.entries.append(('notice', text))
+            self.entries.append(("notice", text))
             await super().notice(text)
 
     host = EchoHost()
     interaction = LongResearchInteraction(tmp_path)
-    command = '/long-research optimize a new task'
+    command = "/long-research optimize a new task"
     await interaction.try_handle(command, host)
-    assert host.entries[0] == ('user', command)
+    assert host.entries[0] == ("user", command)
     offset = len(host.entries)
     await interaction.try_handle(str(tmp_path), host)
-    assert host.entries[offset] == ('user', str(tmp_path))
-    assert sum(role == 'user' for role, _ in host.entries) == 2
+    assert host.entries[offset] == ("user", str(tmp_path))
+    assert sum(role == "user" for role, _ in host.entries) == 2
     offset = len(host.entries)
-    assert not await interaction.try_handle('/help', host)
-    assert not any(role == 'user' for role, _ in host.entries[offset:])
-    await interaction.try_handle('/cancel', host)
-    assert host.entries[-2] == ('user', '/cancel')
+    assert not await interaction.try_handle("/help", host)
+    assert not any(role == "user" for role, _ in host.entries[offset:])
+    await interaction.try_handle("/cancel", host)
+    assert host.entries[-2] == ("user", "/cancel")
     await interaction.aclose()
 
 
@@ -770,14 +825,32 @@ async def test_running_research_allows_chat_and_chat_cancellation(tmp_path):
 
     host = FakeHost()
     interaction = LongResearchInteraction(tmp_path)
-    interaction.session = LongResearchSession.start(workspace=tmp_path, constraints='circle-packing')
+    interaction.session = LongResearchSession.start(
+        workspace=tmp_path, constraints="circle-packing"
+    )
     interaction.session.state = OnboardingState.RUNNING
     interaction._run_task = asyncio.create_task(asyncio.Event().wait())
-    assert not await interaction.try_handle('你好，解释一下这个算法', host)
-    assert not await interaction.try_handle('/steer 请简短回答', host)
+    assert not await interaction.try_handle("你好，解释一下这个算法", host)
+    assert not await interaction.try_handle("/steer 请简短回答", host)
     assert host.notices == []
-    assert await interaction.try_handle('/status', host)
+    assert await interaction.try_handle("/status", host)
     host._busy = True
-    assert not await interaction.try_handle('/cancel', host)
+    assert not await interaction.try_handle("/cancel", host)
     assert not interaction._run_task.done()
+    await interaction.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancel_does_not_ambiguously_stop_managed_tasks(tmp_path):
+    interaction = LongResearchInteraction(tmp_path, managed=True, multi_task=True)
+    interaction._managed.rows["run-1"] = {"alive": True}
+    interaction._managed.rows["run-2"] = {"alive": True}
+    host = FakeHost()
+
+    assert await interaction.try_handle("/cancel", host)
+    assert "/stop N" in host.notices[-1]
+    assert all(row["alive"] for row in interaction._managed.rows.values())
+
+    host._busy = True
+    assert not await interaction.try_handle("/cancel", host)
     await interaction.aclose()

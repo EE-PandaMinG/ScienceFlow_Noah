@@ -99,9 +99,7 @@ class MonitorServer(ThreadingHTTPServer):
                         for key, stamp in self.requested.items()
                         if time.monotonic() - stamp < 30
                     }
-                    self.requested = {
-                        key: self.requested[key] for key in active_keys
-                    }
+                    self.requested = {key: self.requested[key] for key in active_keys}
                 with self.scan_lock, self.state_lock:
                     self.details = {
                         key: value
@@ -148,15 +146,19 @@ class Handler(BaseHTTPRequestHandler):
         else:
             data = json.dumps(body, allow_nan=False).encode()
         self.send_response(status)
-        suffix = "; charset=utf-8" if content_type.startswith(('text/', 'application/json')) else ''
+        suffix = (
+            "; charset=utf-8"
+            if content_type.startswith(("text/", "application/json"))
+            else ""
+        )
         self.send_header("Content-Type", content_type + suffix)
         self.send_header("Cache-Control", "no-store")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         if content_security_policy:
-            self.send_header('Content-Security-Policy', content_security_policy)
+            self.send_header("Content-Security-Policy", content_security_policy)
         if disposition:
-            self.send_header('Content-Disposition', disposition)
+            self.send_header("Content-Disposition", disposition)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -198,7 +200,9 @@ class Handler(BaseHTTPRequestHandler):
             with self.server.state_lock:
                 snapshot = self.server.snapshot
             self.reply(200, snapshot)
-        elif route and (match := re.fullmatch(r'task/(\d+)(?:/(report(?:\.(?:md|html|pdf))?))?', route)):
+        elif route and (
+            match := re.fullmatch(r"task/(\d+)(?:/(report(?:\.(?:md|html))?))?", route)
+        ):
             key, report_route = match.groups()
             with self.server.state_lock:
                 known = any(
@@ -209,35 +213,40 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if report_route:
                 report = self.server.monitor.report(key)
-                if report_route == 'report':
+                if report_route == "report":
                     self.reply(200, report)
                     return
                 name = report_route
-                if not report.get('available') or not report.get('formats', {}).get(name):
-                    self.reply(404, {'error': 'Report format unavailable'})
+                if not report.get("available") or not report.get("formats", {}).get(
+                    name
+                ):
+                    self.reply(404, {"error": "Report format unavailable"})
                     return
                 root = self.server.monitor.task_root(key)
                 if root is None:
-                    self.reply(404, {'error': 'Task workspace unavailable'})
+                    self.reply(404, {"error": "Task workspace unavailable"})
                     return
                 content_types = {
-                    'report.md': 'text/markdown',
-                    'report.html': 'text/html',
-                    'report.pdf': 'application/pdf',
+                    "report.md": "text/markdown",
+                    "report.html": "text/html",
                 }
                 try:
                     body = (root / name).read_bytes()
                 except OSError:
-                    self.reply(404, {'error': 'Report format unavailable'})
+                    self.reply(404, {"error": "Report format unavailable"})
                     return
                 self.reply(
                     200,
                     body,
                     content_types[name],
-                    disposition=(f'attachment; filename="{name}"' if name != 'report.html' else None),
+                    disposition=(
+                        f'attachment; filename="{name}"'
+                        if name != "report.html"
+                        else None
+                    ),
                     content_security_policy=(
                         "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
-                        if name == 'report.html'
+                        if name == "report.html"
                         else None
                     ),
                 )
@@ -256,26 +265,26 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         route = self.route()
-        if route == 'stop':
+        if route == "stop":
             self.reply(200, {"stopping": True})
             self.server.stopping.set()
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return
-        match = re.fullmatch(r'task/(\d+)/report', route or '')
+        match = re.fullmatch(r"task/(\d+)/report", route or "")
         if not match:
             self.reply(404, {"error": "Not found"})
             return
         key = match[1]
         with self.server.state_lock:
-            known = any(task['key'] == key for task in self.server.snapshot['tasks'])
+            known = any(task["key"] == key for task in self.server.snapshot["tasks"])
         if not known:
-            self.reply(404, {'error': 'Unknown task'})
+            self.reply(404, {"error": "Unknown task"})
             return
         try:
             with self.server.report_lock:
                 report = self.server.monitor.generate_report(key)
         except (OSError, ValueError, TypeError, KeyError) as exc:
-            self.reply(409, {'error': str(exc)})
+            self.reply(409, {"error": str(exc)})
             return
         self.reply(200, report)
 

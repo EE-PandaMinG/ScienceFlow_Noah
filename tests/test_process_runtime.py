@@ -12,7 +12,10 @@ from pathlib import Path
 import pytest
 
 from inquirycraft.runtime import terminate_process_tree
-from scienceflow.runtime.observability.monitoring import MonitorService, ProcessObservationPublisher
+from scienceflow.runtime.observability.monitoring import (
+    MonitorService,
+    ProcessObservationPublisher,
+)
 from scienceflow.runtime.core.process import (
     InquiryCraftProcessAdapter,
     ProcessExecutionSession,
@@ -77,28 +80,39 @@ async def test_process_session_normal_and_nonzero_exit_have_typed_lifecycle(
 
 
 @pytest.mark.asyncio
-async def test_process_session_timeout_after_flush_preserves_output_and_unregisters_group(
+@pytest.mark.parametrize("iteration", range(10))
+async def test_process_session_timeout_terminates_and_unregisters_process_group(
     tmp_path: Path,
+    iteration: int,
 ) -> None:
-    flushed = asyncio.Event()
-
-    def on_chunk(chunk: ProcessStreamChunk) -> None:
-        if chunk.text == "ready\n":
-            flushed.set()
-
     adapter = InquiryCraftProcessAdapter(
         terminate_fn=lambda process, **_: terminate_process_tree(process, grace=0.1)
     )
     session = ProcessExecutionSession(
-        _request(tmp_path, "import time; print('ready', flush=True); time.sleep(30)"),
+        _request(
+            tmp_path,
+            "import time; from pathlib import Path; "
+            "print('ready', flush=True); Path('flushed').touch(); time.sleep(30)",
+            timeout=0.000001,
+            session_id=f"flushed-timeout-{iteration}",
+        ),
         adapter=adapter,
-        on_chunk=on_chunk,
     )
-    running = asyncio.create_task(session.run())
-    await asyncio.wait_for(flushed.wait(), timeout=2)
 
-    await session.terminate(ProcessStatus.TIMED_OUT, sigterm_grace=0.1)
-    outcome = await running
+    # A 0.1s startup deadline cannot prove the interpreter reached print().
+    # Confirm flushed bytes before forcing immediate timeout and stream draining.
+    await session.start()
+    completed = False
+    try:
+        async with asyncio.timeout(5):
+            while not (tmp_path / "flushed").exists():
+                await asyncio.sleep(0.01)
+        outcome = await session.run()
+        completed = True
+    finally:
+        if not completed:
+            await session.terminate()
+            adapter.unregister(session.process_group_id)
 
     assert outcome.status is ProcessStatus.TIMED_OUT
     assert outcome.output.stdout == "ready\n"
@@ -107,7 +121,9 @@ async def test_process_session_timeout_after_flush_preserves_output_and_unregist
 
 
 @pytest.mark.asyncio
-async def test_process_session_escalates_ignored_sigterm_to_sigkill(tmp_path: Path) -> None:
+async def test_process_session_escalates_ignored_sigterm_to_sigkill(
+    tmp_path: Path,
+) -> None:
     ready = asyncio.Event()
 
     def on_chunk(chunk: ProcessStreamChunk) -> None:
@@ -304,7 +320,7 @@ async def test_bash_visible_reduction_keeps_full_raw_output_out_of_band(
         bash_timeout_slow_sec=5.0,
     )
 
-    result = await tool.execute(f"python3 -c \"print({payload!r})\"")
+    result = await tool.execute(f'python3 -c "print({payload!r})"')
 
     assert result.error is None
     assert len(result.output or "") < len(payload)

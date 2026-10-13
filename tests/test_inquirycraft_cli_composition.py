@@ -13,22 +13,31 @@ def test_scienceflow_logo_marks_empty_cells_as_transparent() -> None:
     assert any(pixel != "transparent" for row in LOGO_PIXELS for pixel in row)
 
 
-def test_scienceflow_keeps_existing_commands_and_adds_agent_group() -> None:
+def test_scienceflow_root_help_prioritizes_primary_commands() -> None:
     result = CliRunner().invoke(main, ["--help"])
 
     assert result.exit_code == 0
+    visible = {
+        line.strip().split()[0]
+        for line in result.output.split("Commands:", 1)[1].splitlines()
+        if line.strip()
+    }
+    for command in ("tui", "run", "status", "stop", "resume", "config", "web"):
+        assert command in visible
     for command in (
-        "run",
+        "prep",
         "repl",
         "parallel",
-        "tui",
         "monitor",
         "monitor-trace",
         "resource-summary",
         "replay-prepare",
         "agent",
     ):
-        assert command in result.output
+        assert command not in visible
+        assert command in main.commands
+        direct = CliRunner().invoke(main, [command, "--help"])
+        assert direct.exit_code == 0, direct.output
 
 
 def test_scienceflow_agent_tools_use_inquirycraft_without_llm_init() -> None:
@@ -46,44 +55,6 @@ def test_scienceflow_agent_group_excludes_optional_inquirycraft_tui() -> None:
     assert {"run", "repl", "tools", "events"}.issubset(result.output.split())
 
 
-def test_scienceflow_embedded_agent_repl_uses_scienceflow_prompt(
-    monkeypatch, tmp_path: Path
-) -> None:
-    from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory
-
-    class FakeRuntime:
-        async def aclose(self) -> None:
-            pass
-
-    monkeypatch.setattr(
-        PoolRuntimeFactory,
-        "create_runtime",
-        lambda self, options, **kwargs: FakeRuntime(),
-    )
-    config = tmp_path / "models.json"
-    config.write_text(
-        '{"models":{"fake":{"model":"fake","endpoints":['
-        '{"url":"","key":"test"}]}},"defaults":{"code_models":["fake"]}}'
-    )
-
-    result = CliRunner().invoke(
-        main,
-        [
-            "agent",
-            "repl",
-            "--model-config",
-            str(config),
-            "--workspace",
-            str(tmp_path),
-        ],
-        input="quit\n",
-    )
-
-    assert result.exit_code == 0, result.output
-    assert "scienceflow> " in result.output
-    assert "inquirycraft> " not in result.output
-
-
 def test_scienceflow_root_tui_uses_existing_inquirycraft_options() -> None:
     result = CliRunner().invoke(main, ["tui", "--help"])
 
@@ -99,6 +70,14 @@ def test_scienceflow_root_tui_uses_existing_inquirycraft_options() -> None:
     assert "full-screen ScienceFlow terminal interface" in result.output
 
 
+def test_scienceflow_tui_registers_one_resume_option() -> None:
+    from scienceflow.interfaces.cli.commands.run.tui import build_tui_command
+
+    command = build_tui_command()
+    assert [param.name for param in command.params].count("resume") == 1
+    assert [param.opts for param in command.params if param.name == "resume"] == [["--resume"]]
+
+
 def test_scienceflow_root_tui_requires_complete_090_host_contract() -> None:
     from inspect import signature
 
@@ -110,7 +89,6 @@ def test_scienceflow_root_tui_requires_complete_090_host_contract() -> None:
         "model_default_key",
         "tui_branding",
         "tui_interceptor_factory",
-        "repl_prompt",
     }
     assert required.issubset(signature(create_cli).parameters)
 
@@ -211,8 +189,7 @@ def test_scienceflow_root_tui_binds_long_research_to_selected_workspace(
     assert captured["branding"].fold_system_notices
     assert captured["branding"].welcome_text.splitlines() == [
         "Long Research · parallel workers explore, evaluate, and preserve the best result.",
-        "Chat · first code model with endpoint failover · shell denied (/permission; 120s default)",
-        "Chat history: scienceflow tui --resume · research tasks: /resume TASK_ID",
+        "Start with /long-research · monitor with /tasks · resume a task with /resume N",
     ]
     assert captured["branding"].welcome_emphasis == (
         "Long Research",

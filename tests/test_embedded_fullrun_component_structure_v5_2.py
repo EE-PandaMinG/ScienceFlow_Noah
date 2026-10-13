@@ -14,6 +14,7 @@ def test_embedded_fullrun_owners_stay_bounded() -> None:
         quality_root / "embedded_fullrun.py": 100,
         quality_root / "fullrun/execution.py": 800,
         quality_root / "fullrun/snapshot.py": 800,
+        quality_root / "fullrun/metrics/contracts.py": 250,
     }
 
     observed = {
@@ -37,4 +38,14 @@ def test_embedded_fullrun_compatibility_entries_have_real_owners() -> None:
     )
     assert embedded_fullrun._maybe_embedded_full_run_after_quick_test.__module__ == (
         "scienceflow.research.quality.fullrun.execution"
+    )
+
+
+def test_score_contracts_have_a_separate_owner() -> None:
+    from scienceflow.research.quality.fullrun.metrics import contracts
+
+    assert embedded_fullrun._score_contract_errors is contracts._score_contract_errors
+    assert (
+        embedded_fullrun._validate_llm_metric_interpretation
+        is contracts._validate_llm_metric_interpretation
     )

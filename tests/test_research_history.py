@@ -1,4 +1,5 @@
 import asyncio
+import json
 from dataclasses import asdict
 from time import monotonic
 from types import SimpleNamespace
@@ -53,6 +54,65 @@ def draft():
 
 
 @pytest.mark.asyncio
+async def test_session_activity_replays_without_changing_chat_or_recording_queries(tmp_path):
+    host = HistoryHost()
+    messages = [SimpleNamespace(role='user', content='first chat')]
+    host.runtime = SimpleNamespace(
+        options=SimpleNamespace(session_log=tmp_path / 'session.jsonl'),
+        conversation=SimpleNamespace(messages=messages),
+    )
+    history = ResearchHistory()
+    await history.record(host, 'Task 1 · preparation started')
+    messages.append(SimpleNamespace(role='assistant', content='answer'))
+    await history.record(host, 'Task 1 · running · run abc')
+    saved = (tmp_path / 'scienceflow_activity.jsonl').read_text()
+    assert '/status' not in saved and len(messages) == 2
+    assert (tmp_path / 'scienceflow_activity.jsonl').stat().st_mode & 0o777 == 0o600
+
+    restored = ResearchHistory()
+    await restored.load(host)
+    assert restored.history_before(0) == ()
+    assert restored.history_before(1) == ()
+    assert restored.history_before(2) == ('Task 1 · running',)
+    assert restored.history_before(2) == ()
+
+    legacy = ResearchHistory()
+    await legacy.load(host)
+    await legacy.show_legacy_history(host)
+    assert 'Task 1 · running' in host.events[-1][1]
+    assert 'preparation started' not in host.events[-1][1]
+    assert legacy.history_before(2) == ()
+
+
+@pytest.mark.asyncio
+async def test_restored_activity_keeps_one_latest_line_per_task(tmp_path):
+    path = tmp_path / 'scienceflow_activity.jsonl'
+    events = (
+        (1, 'Task 2 · preparation started'),
+        (1, 'Long research · preparation cancelled'),
+        (2, 'Task 3 · preparation started'),
+        (3, 'Task 3 · preflight verified'),
+        (4, 'Task 3 · circle-packing · starting · run circle-packing-20261006T220241999247Z-517c13d5'),
+    )
+    path.write_text(''.join(
+        json.dumps({'message_index': position, 'summary': summary}) + '\n'
+        for position, summary in events
+    ), encoding='utf-8')
+    original = path.read_bytes()
+    host = HistoryHost()
+    host.runtime = SimpleNamespace(options=SimpleNamespace(session_log=tmp_path / 'session.jsonl'))
+
+    history = ResearchHistory()
+    await history.load(host)
+
+    assert history.history_before(1) == ('Task 2 · preparation cancelled',)
+    assert history.history_before(2) == ()
+    assert history.history_before(3) == ()
+    assert history.history_before(4) == ('Task 3 · circle-packing · starting',)
+    assert path.read_bytes() == original
+
+
+@pytest.mark.asyncio
 async def test_display_history_is_optional_and_does_not_modify_draft():
     history = ResearchHistory()
     original = draft()
@@ -75,7 +135,7 @@ async def test_display_history_is_optional_and_does_not_modify_draft():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('outcome', ['running', 'starting', 'failed', 'interrupted', 'exception', 'view_error'])
-async def test_multi_research_folds_only_after_success_before_start_notice(tmp_path, monkeypatch, outcome):
+async def test_multi_research_shows_one_task_line_after_success(tmp_path, monkeypatch, outcome):
     owner = LongResearchInteraction(tmp_path, managed=True, multi_task=True)
     owner._model_config_path = tmp_path / 'missing.json'
     host = HistoryHost()
@@ -102,27 +162,33 @@ async def test_multi_research_folds_only_after_success_before_start_notice(tmp_p
     host.fold_error = outcome == 'view_error'
     monkeypatch.setattr(manager, 'start_run', start)
     try:
+        launch_offset = len(host.events)
         await owner._managed.launch(host)
+        launch_events = host.events[launch_offset:]
         folds = [event for event in host.events if event[0] == 'fold']
         assert len(folds) == int(outcome in {'running', 'starting'})
         assert asdict(original) == snapshot
         if folds:
-            fold_index = host.events.index(folds[0])
-            assert 'Configuration' in folds[0][2]
-            assert 'started' in host.events[fold_index + 1][1]
+            assert folds[0][2] == (
+                'Task 1 · circle-packing · CPU 0-15 · GPU CPU-only · 2 workers · 60 min'
+            )
+            assert not any(event[0] == 'notice' for event in launch_events)
             assert owner.session is None
         if outcome == 'exception':
             assert owner.session is not None
             assert any('launch failed' in event[1] for event in host.events if event[0] == 'notice')
         if outcome == 'view_error':
             assert owner.session is None
-            assert not any('Could not start' in event[1] for event in host.events if event[0] == 'notice')
+            notices = [event[1] for event in launch_events if event[0] == 'notice']
+            assert notices == [
+                'Task 1 · circle-packing · CPU 0-15 · GPU CPU-only · 2 workers · 60 min'
+            ]
     finally:
         await owner.aclose()
 
 
 @pytest.mark.asyncio
-async def test_cancelled_preparation_and_busy_requests_do_not_fold(tmp_path, monkeypatch):
+async def test_cancelled_preparation_folds_after_busy_request_was_ignored(tmp_path):
     owner = LongResearchInteraction(tmp_path)
     owner._model_config_path = tmp_path / 'missing.json'
     host = HistoryHost()
@@ -131,9 +197,53 @@ async def test_cancelled_preparation_and_busy_requests_do_not_fold(tmp_path, mon
     assert not any(event[0] == 'begin' for event in host.events)
     host.busy = False
     await owner.try_handle('/long-research circle-packing', host)
+    assert not any(event[0] == 'fold' for event in host.events)
     await owner.try_handle('/cancel', host)
     assert owner.session is None
-    assert not any(event[0] == 'fold' for event in host.events)
+    folds = [event for event in host.events if event[0] == 'fold']
+    assert len(folds) == 1
+    assert folds[0][2] == 'Long research · Preparation cancelled'
+    assert host.events.index(folds[0]) > next(
+        index for index, event in enumerate(host.events)
+        if event[0] == 'notice' and 'cancelled' in event[1]
+    )
+    await owner.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_task_selection_folds_without_a_draft(tmp_path):
+    owner = LongResearchInteraction(tmp_path)
+    host = HistoryHost()
+
+    await owner.try_handle('/long-research', host)
+    assert owner._awaiting_task_target
+    await owner.try_handle('/cancel', host)
+
+    assert not owner._awaiting_task_target
+    assert [event[2] for event in host.events if event[0] == 'fold'] == [
+        'Long research · Task selection cancelled'
+    ]
+    await owner.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_managed_preparation_names_task_in_fold(tmp_path, monkeypatch):
+    owner = LongResearchInteraction(tmp_path, managed=True, multi_task=True)
+    host = HistoryHost()
+    await owner._history.begin(host)
+    owner.session = LongResearchSession(draft())
+    owner._managed.preparing = {'number': 3}
+
+    async def cancel_preparation():
+        owner._managed.preparing = None
+
+    monkeypatch.setattr(owner._managed, 'cancel_preparation', cancel_preparation)
+    await owner.try_handle('/cancel', host)
+
+    assert owner.session is None
+    assert [event[2] for event in host.events if event[0] == 'fold'] == [
+        'Task 3 · Preparation cancelled'
+    ]
     await owner.aclose()
 
 

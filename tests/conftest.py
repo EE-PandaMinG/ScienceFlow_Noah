@@ -14,8 +14,8 @@
 
 - ``tmp_path`` / ``tmp_path_factory`` create directories under :data:`tests.fs_root.TEST_WORKSPACE_ROOT`
   (default ``/tmp/scienceflow_tests``); each test’s directory is removed in ``finally``.
-- After the session, :func:`pytest_sessionfinish` deletes any **remaining** children under that
-  root (e.g. after crashes). Set ``SCIENCEFLOW_TEST_KEEP_TMP=1`` to skip session cleanup for debugging.
+- After the session, :func:`pytest_sessionfinish` deletes only this process’s owned
+  session directory; concurrent sessions are left intact. Set ``SCIENCEFLOW_TEST_KEEP_TMP=1`` to skip session cleanup for debugging.
 
 **Repo root artifacts** (``logs/``, ``workspace/``, ``resolved_config.yaml`` under the ScienceFlow
 package root): pytest does **not** create these in the repo; they come from CLI runs with default
@@ -80,7 +80,7 @@ def tmp_path_factory(request: pytest.FixtureRequest):
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Best-effort wipe of ``TEST_WORKSPACE_ROOT`` after all tests (see module docstring)."""
+    """Clean this test session only; other processes own separate directories."""
     if os.environ.get("SCIENCEFLOW_TEST_KEEP_TMP", "").strip().lower() in (
         "1",
         "true",
@@ -88,19 +88,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     ):
         pass  # skip /tmp cleanup only; still allow opt-in repo-root cleanup below
     else:
-        root = TEST_WORKSPACE_ROOT
-        if root.is_dir():
-            try:
-                for child in root.iterdir():
-                    if child.is_dir():
-                        shutil.rmtree(child, ignore_errors=True)
-                    else:
-                        try:
-                            child.unlink()
-                        except OSError:
-                            pass
-            except OSError:
-                pass
+        shutil.rmtree(TEST_WORKSPACE_ROOT, ignore_errors=True)
 
     _clean_repo_root_artifacts_if_requested()
 

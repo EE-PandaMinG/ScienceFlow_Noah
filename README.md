@@ -7,7 +7,7 @@
   <a href="https://pypi.org/project/scienceflow/"><img src="https://img.shields.io/pypi/v/scienceflow?label=PyPI&amp;color=0f766e" alt="PyPI"></a>
   <a href="https://arxiv.org/abs/2608.14354"><img src="https://img.shields.io/badge/arXiv-2608.14354-B31B1B.svg" alt="arXiv paper"></a>
   <a href="https://github.com/science-learner/ScienceFlow/issues"><img src="https://img.shields.io/badge/feedback-open-334155" alt="Feedback"></a>
-  <img src="https://img.shields.io/badge/Python-3.11%E2%80%933.13-3776AB" alt="Python 3.11–3.13">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB" alt="Python 3.11+">
 </p>
 
 <p align="justify">
@@ -18,11 +18,16 @@ TUI and Web monitor.
 </p>
 
 > [!IMPORTANT]
-> **Source preview · 0.2.0b8 (unreleased).** Installation examples below remain pinned to the previously tagged 0.2.0b7. This preview requires InquiryCraft 0.9.2 for workspace session continuity; that version is not yet published on PyPI, so the preview dependency lock and registry installation remain blocked until the upstream release. Do not substitute 0.9.1.
+> **Testing preview.** Interfaces and workspace metadata may change before the stable release.
+
+## News
+
+- **[2026-09]** Released the ScienceFlow harness preview for long-horizon scientific research agents, with TUI and Web interfaces.
+- **[2026-08]** Released ScienceFlow [code](https://github.com/EE-PandaMinG/ScienceFlow_Noah/commit/ad1f7ddae57873807da5a9c0070c68ba9a740515) and [paper](https://arxiv.org/abs/2608.14354).
 
 ## Quick start
 
-<p align="justify"><strong>Requirements:</strong> Python 3.11–3.13 and access to a supported model API.</p>
+<p align="justify"><strong>Requirements:</strong> Python 3.11+ and access to a supported model API.</p>
 
 ### Install
 
@@ -66,21 +71,12 @@ python -m pip install scienceflow==0.2.0b7
 ```bash
 scienceflow config init
 scienceflow config path     # edit the generated private model registry
-scienceflow tui --workspace "$PWD/sf_workspace"
+scienceflow tui
 ```
 
 <p align="justify">
 Chat normally in the TUI, or enter <code>/long-research</code> to configure and launch a
 managed task. Closing the TUI detaches from research without terminating its workers.
-Research defaults to your selected chat model; use <code>/models</code> to switch.
-Use <code>/compact</code> to condense Chat context without deleting saved records.
-Ordinary TUI chat provides workspace-contained <code>read_text</code> and
-<code>write_text</code> tools, but no raw shell by default. Use <code>/permission</code>
-to inspect tool permissions and <code>/permission shell allow|deny</code> to grant or
-revoke shell access for the current TUI session. Enabled shell commands run as your
-current user with full host and network access, without an OS sandbox; the default
-timeout is 120 seconds unless a bounded timeout is supplied. This does not change
-LongResearch execution or <code>scienceflow agent</code> tools.
 </p>
 
 ### Minimal TUI example
@@ -93,16 +89,10 @@ complete these prompts in order:
 **1 · Prepare the task**
 
 ```text
-/long-research circle-packing data=none workers=2 cpu=16 gpu=cpu duration=1h
+/long-research circle-packing workers=2 cpu=16 gpu=cpu duration=1h
 ```
 
-**2 · Accept the model defaults**
-
-```text
-default
-```
-
-**3 · Start after preflight passes**
+**2 · Start after preflight passes**
 
 ```text
 run
@@ -123,34 +113,20 @@ and retains the best valid artifact under the workspace. Follow it with
   </thead>
   <tbody>
     <tr><td align="left"><code>/long-research DESCRIPTION</code></td><td align="left">Prepare and launch a research task.</td></tr>
-    <tr><td align="left"><code>/tasks</code>, <code>/status N</code></td><td align="left">List tasks or inspect one task.</td></tr>
+    <tr><td align="left"><code>/tasks</code>, <code>/status N</code></td><td align="left">List tasks or inspect results, model usage, and resources.</td></tr>
     <tr><td align="left"><code>/stop N</code>, <code>/resume N</code>, <code>/attach N</code></td><td align="left">Control or follow a task.</td></tr>
-    <tr><td align="left"><code>/research-usage N</code>, <code>/resources</code></td><td align="left">Inspect model, cost, and resource usage.</td></tr>
     <tr><td align="left"><code>/models</code></td><td align="left">Select the fixed chat model.</td></tr>
     <tr><td align="left"><code>/web</code>, <code>/web stop</code></td><td align="left">Start or stop the workspace Web monitor.</td></tr>
   </tbody>
 </table>
 
-Choose a saved chat session in the same workspace with:
+Choose a saved chat session with:
 
 ```bash
-scienceflow tui --workspace "$PWD/sf_workspace" --resume
+scienceflow tui --resume
 ```
 
-The list always asks you to confirm a session. In a non-interactive terminal, use
-`--resume --session ID` (a unique ID prefix works). Use
-`scienceflow sessions list --workspace "$PWD/sf_workspace"` to view chat IDs and
-update times; `scienceflow agent sessions list` shows the same entries. An unused
-new TUI session does not add an empty chat to that list. Chat resume restores
-conversation history; it does not
-restart research. The task board reattaches to living research processes and shows
-saved reports for completed tasks. An interrupted task remains paused until you
-explicitly enter `/resume TASK_ID` in the TUI, or run `scienceflow resume RUN_ID`
-for a research task. ScienceFlow chat sessions, including
-existing history, are listed and saved under `<workspace>/.scienceflow/sessions/`.
-`scienceflow agent` shares that same session list and directory. Both use InquiryCraft's
-session implementation; only the standalone `inquirycraft` CLI uses its separate
-`.inquirycraft/sessions/` namespace.
+See the [runtime guide](docs/public/RUNTIME_GUIDE.md) for workspace and execution details.
 
 ## How it works
 
@@ -203,15 +179,12 @@ Model settings stay local in <code>~/.config/scienceflow/models.json</code> (mod
 </p>
 
 <p align="justify">
-The base package includes the TUI, CPU data tools (NumPy, pandas, SciPy), built-in
-optimization evaluators, and PDF reports (ReportLab). GPU training, pretrained models,
-and benchmark integrations remain optional. Install the scientific-design extra for
-Sci-Modeling-Bench and Hugging Face datasets, or the full extra for ML/GPU tasks:
+The base package provides the control plane and TUI. Install task-specific ML/GPU
+dependencies only when needed:
 </p>
 
 ```bash
-python -m pip install "scienceflow[scientific-design]==0.2.0b7"
-python -m pip install "scienceflow[full]==0.2.0b7"
+python -m pip install "scienceflow[full]"==0.2.0b7
 ```
 
 <p align="justify">
@@ -227,13 +200,12 @@ git clone --branch preview https://github.com/science-learner/ScienceFlow.git
 cd ScienceFlow
 uv sync --python 3.12 --group dev
 uv run scienceflow config init
-uv run scienceflow tui --workspace "$PWD/sf_workspace"
+uv run scienceflow tui
 ```
 
 <p align="justify">
-Use <code>uv sync --extra scientific-design --group dev</code> for
-Sci-Modeling-Bench tests, or <code>uv sync --extra full --group dev</code> for the
-ML/GPU test environment. Extras are not needed for basic CPU data tools and reports.
+Use <code>uv sync --extra full --group dev</code> only when tests require the full ML/GPU
+environment.
 </p>
 
 ## Research

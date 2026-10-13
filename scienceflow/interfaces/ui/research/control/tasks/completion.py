@@ -5,7 +5,7 @@ import shlex
 
 def task_completions(manager, text):
     command, _, fragment = text.partition(' ')
-    if command in {'/stop', '/resume', '/status', '/attach', '/select', '/research-usage'}:
+    if command in {'/stop', '/resume', '/status', '/attach'}:
         if ' ' in fragment.strip():
             return []
         matches = []

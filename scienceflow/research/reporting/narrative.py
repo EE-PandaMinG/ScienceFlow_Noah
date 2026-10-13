@@ -104,9 +104,15 @@ def findings(report: ReportDocument) -> list[str]:
         )
     if report.finalists:
         best = report.finalists[0]
-        values.append(
-            f"Final candidate {best['candidate_id']} ranked first with {report.metric_name}={best['metric']:.6g} and evaluator status {best['evaluator']}."
-        )
+        if best.get("metric") is None:
+            values.append(
+                "Final artifacts have no independent numerical score; format validation "
+                "does not establish a final ranking or test-set performance."
+            )
+        else:
+            values.append(
+                f"Final candidate {best['candidate_id']} ranked first with {report.metric_name}={best['metric']:.6g} and evaluator status {best['evaluator']}."
+            )
     if report.stop_reason:
         values.append(f"The recorded termination reason was {report.stop_reason}.")
     return values or ["No evaluator-backed quantitative finding was available."]

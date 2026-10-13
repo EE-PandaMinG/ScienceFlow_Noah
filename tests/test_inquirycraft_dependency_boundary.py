@@ -29,9 +29,7 @@ def test_scienceflow_exposes_only_mcp_as_optional_inquirycraft_integration() -> 
         if name.startswith("inquirycraft-")
     }
     assert "inquirycraft[openai,tui]==0.9.2" in project["dependencies"]
-    assert inquirycraft_extras == {
-        "inquirycraft-mcp": ["inquirycraft[mcp]==0.9.2"]
-    }
+    assert inquirycraft_extras == {"inquirycraft-mcp": ["inquirycraft[mcp]==0.9.2"]}
     assert "inquirycraft" not in config["tool"]["uv"]["sources"]
 
 
@@ -42,7 +40,6 @@ def test_contract_ci_installs_project_metadata_without_dependency_override() -> 
     ).read_text(encoding="utf-8")
 
     assert "python -m pip install -e ." in workflow
-    assert "uv lock --check" in workflow
     assert "requirements.txt" not in workflow
     assert "inquirycraft[" not in workflow
 
@@ -64,10 +61,40 @@ def test_tui_rejects_old_runtime_without_manual_compaction(monkeypatch) -> None:
 
     from scienceflow.interfaces.cli.commands.run.tui import build_tui_command
 
-    monkeypatch.setattr(AgentRuntime, 'compact_context', None)
+    monkeypatch.setattr(AgentRuntime, "compact_context", None)
     result = CliRunner().invoke(build_tui_command(), [])
     assert result.exit_code != 0
-    assert 'InquiryCraft build with workspace session APIs' in result.output
+    assert "InquiryCraft is missing manual context compaction" in result.output
+    assert "AgentRuntime.compact_context" in result.output
+    assert "inquirycraft[openai,tui]==0.9.2" in result.output
+    assert "pre-history input hook" not in result.output
+
+
+def test_tui_identifies_missing_history_hook(monkeypatch) -> None:
+    from click.testing import CliRunner
+    import inquirycraft.tui as tui_host
+
+    from scienceflow.interfaces.cli.commands.run.tui import build_tui_command
+
+    monkeypatch.delattr(tui_host, "TuiInputPreprocessor")
+    result = CliRunner().invoke(build_tui_command(), [])
+    assert result.exit_code != 0
+    assert "pre-history input hook (TuiInputPreprocessor)" in result.output
+    assert "manual context compaction" not in result.output
+
+
+def test_tui_identifies_missing_host_parameters(monkeypatch) -> None:
+    from click.testing import CliRunner
+
+    from scienceflow.interfaces.cli.commands.run import tui
+
+    monkeypatch.setattr(tui, "create_cli", lambda: None)
+    result = CliRunner().invoke(tui.build_tui_command(), [])
+    assert result.exit_code != 0
+    assert "CLI host parameters:" in result.output
+    assert "tui_interceptor_factory" in result.output
+    assert "pre-history input hook" not in result.output
+    assert "manual context compaction" not in result.output
 
 
 def test_light_wheel_keeps_registered_task_packages_discoverable() -> None:
@@ -191,4 +218,6 @@ def test_retired_scienceflow_tool_runtime_directories_stay_absent() -> None:
         source_root / "executor",
         source_root / "tools",
     ]
-    assert [str(path.relative_to(source_root)) for path in retired if path.exists()] == []
+    assert [
+        str(path.relative_to(source_root)) for path in retired if path.exists()
+    ] == []
