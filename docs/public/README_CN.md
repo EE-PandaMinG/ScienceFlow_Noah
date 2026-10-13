@@ -87,9 +87,8 @@ manifest、session 或报告中。详细字段见[模型配置说明](LLM_CONFIG
 
 ## 最新动态
 
-- **[2026-09]** 测试预览版已发布至 `preview` 分支，用于集成测试与反馈。
-- **[2026-08]** ScienceFlow 正式开源——框架代码、任务包与文档均已发布在本仓库。
-- **[2026-08]** ScienceFlow 论文已上线 [arXiv](https://arxiv.org/abs/2608.14354)。
+- **[2026-09]** 发布科学家智能体 Harness 预览版，支持 TUI 与 Web 交互。
+- **[2026-08]** ScienceFlow 正式开源，包含框架代码、任务包与文档；论文同步上线 [arXiv](https://arxiv.org/abs/2608.14354)。
 
 ## 核心概念
 

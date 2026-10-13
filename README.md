@@ -20,6 +20,11 @@ TUI and Web monitor.
 > [!IMPORTANT]
 > **Testing preview.** Interfaces and workspace metadata may change before the stable release.
 
+## News
+
+- **[2026-09]** Released the scientist agent harness preview with TUI and Web interfaces.
+- **[2026-08]** ScienceFlow is open source, including framework code, task packages, and documentation; the paper is available on [arXiv](https://arxiv.org/abs/2608.14354).
+
 ## Quick start
 
 <p align="justify"><strong>Requirements:</strong> Python 3.11+ and access to a supported model API.</p>
