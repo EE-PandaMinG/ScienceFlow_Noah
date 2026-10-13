@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/science-learner/ScienceFlow/actions/workflows/scienceflow-contract-ci.yml"><img src="https://github.com/science-learner/ScienceFlow/actions/workflows/scienceflow-contract-ci.yml/badge.svg?branch=preview" alt="CI"></a>
-  <a href="https://pypi.org/project/scienceflow/"><img src="https://img.shields.io/pypi/v/scienceflow?label=PyPI&amp;color=0f766e" alt="PyPI"></a>
+  <a href="https://pypi.org/project/scienceflow/"><img src="https://img.shields.io/pypi/v/scienceflow?label=PyPI&amp;color=0f766e&amp;cacheSeconds=300&amp;release=0.2.0b8" alt="PyPI"></a>
   <a href="https://arxiv.org/abs/2608.14354"><img src="https://img.shields.io/badge/arXiv-2608.14354-B31B1B.svg" alt="arXiv paper"></a>
   <a href="https://github.com/science-learner/ScienceFlow/issues"><img src="https://img.shields.io/badge/feedback-open-334155" alt="Feedback"></a>
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB" alt="Python 3.11+">
