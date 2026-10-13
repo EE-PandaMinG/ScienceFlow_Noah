@@ -18,7 +18,8 @@ TUI and Web monitor.
 </p>
 
 > [!IMPORTANT]
-> **Testing preview.** Interfaces and workspace metadata may change before the stable release.
+> **Testing preview · 0.2.0b8.**
+> Interfaces and workspace metadata may change before the stable release.
 
 ## News
 
@@ -35,7 +36,7 @@ Install ScienceFlow with <a href="https://pipx.pypa.io/latest/how-to/install-pip
 the command is available from any directory while its Python dependencies remain isolated:
 
 ```bash
-pipx install scienceflow==0.2.0b7
+pipx install scienceflow==0.2.0b8
 scienceflow --help
 ```
 
@@ -47,13 +48,13 @@ scienceflow --help
 ```bash
 conda create -n scienceflow python=3.12 -y
 conda activate scienceflow
-python -m pip install scienceflow==0.2.0b7
+python -m pip install scienceflow==0.2.0b8
 ```
 
 **uv**
 
 ```bash
-uv tool install scienceflow==0.2.0b7
+uv tool install scienceflow==0.2.0b8
 ```
 
 **Python virtual environment**
@@ -61,7 +62,7 @@ uv tool install scienceflow==0.2.0b7
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install scienceflow==0.2.0b7
+python -m pip install scienceflow==0.2.0b8
 ```
 
 </details>
@@ -184,7 +185,7 @@ dependencies only when needed:
 </p>
 
 ```bash
-python -m pip install "scienceflow[full]"==0.2.0b7
+python -m pip install "scienceflow[full]"==0.2.0b8
 ```
 
 <p align="justify">

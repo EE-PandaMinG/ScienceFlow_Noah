@@ -77,7 +77,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
                 "ScienceFlow TUI cannot start: InquiryCraft is missing "
                 + "; ".join(missing)
                 + ". "
-                + "Install inquirycraft[openai,tui]==0.9.2 before starting TUI."
+                + "Install inquirycraft[openai,tui]==0.9.3 before starting TUI."
             )
 
         return unavailable_tui
