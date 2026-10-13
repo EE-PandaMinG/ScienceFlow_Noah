@@ -23,7 +23,7 @@ TUI and Web monitor.
 ## News
 
 - **[2026-09]** Released the scientist agent harness preview with TUI and Web interfaces.
-- **[2026-08]** ScienceFlow is open source, including framework code, task packages, and documentation; the paper is available on [arXiv](https://arxiv.org/abs/2608.14354). [Code snapshot](https://github.com/EE-PandaMinG/ScienceFlow_Noah/commit/ad1f7ddae57873807da5a9c0070c68ba9a740515).
+- **[2026-08]** Released ScienceFlow [code](https://github.com/EE-PandaMinG/ScienceFlow_Noah/commit/ad1f7ddae57873807da5a9c0070c68ba9a740515) and [paper](https://arxiv.org/abs/2608.14354).
 
 ## Quick start
 
