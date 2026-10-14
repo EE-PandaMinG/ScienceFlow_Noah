@@ -45,7 +45,13 @@ class ScienceFlowProviderAudit:
     def observe(
         self, observation: ProviderObservation, context: RuntimeContext
     ) -> None:
-        if observation.phase == "completed" and self.host is not None:
+        usage_known = bool(
+            observation.usage.input_tokens or observation.usage.output_tokens
+        )
+        if (
+            observation.phase == "completed"
+            or (observation.phase == "failed" and usage_known)
+        ) and self.host is not None:
             self.host._run_tokens_in += observation.usage.input_tokens
             self.host._run_tokens_out += observation.usage.output_tokens
             self.host._run_tokens_cached += observation.usage.cached_input_tokens
@@ -109,10 +115,16 @@ class ScienceFlowProviderAudit:
                 max(0, context.turn_id - 1),
                 "ok" if completed else "error",
                 recovery=False,
-                tokens_input=observation.usage.input_tokens if completed else None,
-                tokens_output=observation.usage.output_tokens if completed else None,
+                tokens_input=observation.usage.input_tokens
+                if completed or usage_known
+                else None,
+                tokens_output=observation.usage.output_tokens
+                if completed or usage_known
+                else None,
                 tokens_cached=(
-                    observation.usage.cached_input_tokens if completed else None
+                    observation.usage.cached_input_tokens
+                    if completed or usage_known
+                    else None
                 ),
                 ttft_sec=observation.ttft_sec,
                 tpot_ms=(
