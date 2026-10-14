@@ -11,7 +11,10 @@ import click
 from inquirycraft.cli import create_cli
 from inquirycraft.runtime import AgentRuntime
 
-from scienceflow.foundation.config.llm.model_registry import load_model_registry
+from scienceflow.foundation.config.llm.model_registry import (
+    default_model_config_path,
+    load_model_registry,
+)
 from scienceflow.foundation.config.runtime.llm_lists import values
 from scienceflow.interfaces.cli.user_config import set_tui_state_defaults
 from scienceflow.interfaces.ui.llm_cli import TuiPoolRuntimeFactory, plural_cli_options
@@ -105,7 +108,7 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
     host = create_cli(
         name="scienceflow-tui-host",
         runtime_factory=runtime_factory,
-        model_config_default=Path("~/.config/scienceflow/models.json"),
+        model_config_default=default_model_config_path(),
         model_default_key="code_models",
         include_tui=True,
         tui_branding=TuiBranding(
@@ -144,6 +147,8 @@ def build_tui_command(*, initial_command: str = "") -> click.Command:
     if command is None:  # pragma: no cover - defensive contract guard
         raise RuntimeError("InquiryCraft did not register its TUI command")
     for param in command.params:
+        if param.name == "model_config":
+            param.default = default_model_config_path
         if param.name == "system_prompt":
             param.default = (
                 "You are ScienceFlow, a scientific research and engineering assistant. "

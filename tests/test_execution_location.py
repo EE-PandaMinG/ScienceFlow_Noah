@@ -22,6 +22,9 @@ from scienceflow.runtime.parallel.location import (
 )
 
 
+pytestmark = pytest.mark.usefixtures("research_model_registry")
+
+
 def test_defaults_preserve_both_layouts(tmp_path):
     assert allocate_local_workspace(tmp_path).task_workspace == tmp_path
     entry = TaskIndex(tmp_path).reserve("circle-packing")

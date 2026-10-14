@@ -23,6 +23,9 @@ from scienceflow.runtime.parallel.control import (
 from scienceflow.runtime.parallel.control.registry import alive
 
 
+pytestmark = pytest.mark.usefixtures("research_model_registry")
+
+
 @pytest.fixture
 def controlled_run(tmp_path, monkeypatch, request):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))

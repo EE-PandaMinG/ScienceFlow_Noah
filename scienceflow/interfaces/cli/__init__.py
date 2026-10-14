@@ -428,12 +428,13 @@ from inspect import signature as _call_signature
 
 from inquirycraft.cli import create_cli as _create_inquirycraft_cli
 
+from scienceflow.foundation.config.llm.model_registry import default_model_config_path
 from scienceflow.interfaces.ui.llm_cli import PoolRuntimeFactory, plural_cli_options
 
 _inquirycraft_cli_options: dict[str, Any] = {
     "name": "agent",
     "runtime_factory": PoolRuntimeFactory(),
-    "model_config_default": Path("~/.config/scienceflow/models.json"),
+    "model_config_default": default_model_config_path(),
     "model_default_key": "code_models",
 }
 if "include_tui" in _call_signature(_create_inquirycraft_cli).parameters:

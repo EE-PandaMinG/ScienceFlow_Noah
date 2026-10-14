@@ -23,6 +23,9 @@ from scienceflow.runtime.parallel.config.models import TaskResult
 from scienceflow.runtime.parallel.service import ParallelRunSummary
 
 
+pytestmark = pytest.mark.usefixtures("research_model_registry")
+
+
 def test_research_preparation_prompt_is_not_a_chat_round():
     recognize = LongResearchInteraction.is_host_task_prompt
     assert recognize(
@@ -263,8 +266,9 @@ async def test_complete_flow_preflights_and_runs_directly_with_public_runner(
     assert "manifest_shape=ok" not in host.notices[-1]
 
     assert await interaction.try_handle("run", host) is True
-    while interaction.running:
-        await asyncio.sleep(0)
+    async with asyncio.timeout(5):
+        while interaction.running:
+            await asyncio.sleep(0)
 
     assert calls == [tmp_path / "workspace" / ".scienceflow" / "run_manifest.yaml"]
     assert interaction.session is None
@@ -297,14 +301,15 @@ async def test_cancel_and_close_stop_owned_parallel_run(
     await interaction.try_handle("defaults", host)
     await interaction.try_handle("confirm", host)
     await interaction.try_handle("run", host)
-    await started.wait()
-
-    assert await interaction.try_handle("/cancel", host) is True
-
-    assert cancelled.is_set()
-    assert interaction.session is None
-    assert host.statuses[-1] == ""
-    await interaction.aclose()
+    try:
+        assert interaction._run_task is not None, host.notices
+        await asyncio.wait_for(started.wait(), timeout=5)
+        assert await interaction.try_handle("/cancel", host) is True
+        assert cancelled.is_set()
+        assert interaction.session is None
+        assert host.statuses[-1] == ""
+    finally:
+        await interaction.aclose()
 
 
 @pytest.mark.asyncio
@@ -548,9 +553,10 @@ async def test_valid_model_config_stays_quiet_on_mount(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_missing_model_config_shows_setup_commands(tmp_path):
+async def test_missing_model_config_shows_setup_commands(tmp_path, research_model_registry):
+    research_model_registry.unlink()
     interaction = LongResearchInteraction(tmp_path)
-    interaction._model_config_path = tmp_path / "missing-models.json"
+    assert interaction._model_config_path == research_model_registry
     host = FakeHost()
 
     await interaction.on_mount(host)

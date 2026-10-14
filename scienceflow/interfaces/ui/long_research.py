@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scienceflow.foundation.config.llm.model_registry import default_model_config_path
 from scienceflow.interfaces.ui.research.research_preparation import ResearchPreparation
 from scienceflow.research.onboarding import (
     LongResearchSession,
@@ -171,7 +172,7 @@ class LongResearchInteraction:
 
             self._managed = MultiResearch(self)
         self._task_workspace = None
-        self._model_config_path = Path("~/.config/scienceflow/models.json").expanduser()
+        self._model_config_path = default_model_config_path()
         self._selected_model_aliases: tuple[str, ...] = ()
         self._selected_feedback_aliases: tuple[str, ...] = ()
         self._model_selection = "auto"

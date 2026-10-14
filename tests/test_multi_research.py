@@ -28,6 +28,9 @@ from scienceflow.runtime.parallel.control.resource_claims import (
 )
 
 
+pytestmark = pytest.mark.usefixtures("research_model_registry")
+
+
 class Host:
     busy = False
 

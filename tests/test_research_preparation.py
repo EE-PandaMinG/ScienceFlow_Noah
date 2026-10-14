@@ -24,6 +24,9 @@ from scienceflow.research.onboarding.support.preparation.validation import (
 from scienceflow.runtime.parallel.config.manifest import _resolve_parallel_task_text
 
 
+pytestmark = pytest.mark.usefixtures("research_model_registry")
+
+
 def test_registered_description_survives_tui_manifest_and_keeps_extra_request(tmp_path):
     session = LongResearchSession.start(workspace=tmp_path, constraints='leaf-classification')
     canonical = _resolve_parallel_task_text('leaf-classification', None).strip()
@@ -307,11 +310,15 @@ async def test_cancel_preparation_does_not_launch_or_restore_session(tmp_path):
     host.run_host_task = slow
     interaction = LongResearchInteraction(tmp_path)
     await interaction.try_handle('/long-research new optimization task', host)
-    await started.wait()
-    await interaction.try_handle('/cancel', host)
-    assert stopped.is_set()
-    assert interaction.session is None
-    assert not interaction.running
+    try:
+        assert interaction._preparation.task is not None, host.notices
+        await asyncio.wait_for(started.wait(), timeout=5)
+        await interaction.try_handle('/cancel', host)
+        assert stopped.is_set()
+        assert interaction.session is None
+        assert not interaction.running
+    finally:
+        await interaction.aclose()
 
 
 @pytest.mark.asyncio
