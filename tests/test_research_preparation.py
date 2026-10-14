@@ -27,6 +27,12 @@ from scienceflow.runtime.parallel.config.manifest import _resolve_parallel_task_
 pytestmark = pytest.mark.usefixtures("research_model_registry")
 
 
+@pytest.fixture
+def ample_cpu_affinity(monkeypatch):
+    """Preparation success cases must not depend on the CI runner's CPU quota."""
+    monkeypatch.setattr(os, 'sched_getaffinity', lambda _: set(range(16)))
+
+
 def test_registered_description_survives_tui_manifest_and_keeps_extra_request(tmp_path):
     session = LongResearchSession.start(workspace=tmp_path, constraints='leaf-classification')
     canonical = _resolve_parallel_task_text('leaf-classification', None).strip()
@@ -37,7 +43,7 @@ def test_registered_description_survives_tui_manifest_and_keeps_extra_request(tm
     assert 'use a small model' in extra.draft.task_text
 
 
-def test_registered_task_alias_and_natural_resource_options_are_deterministic(tmp_path):
+def test_registered_task_alias_and_natural_resource_options_are_deterministic(tmp_path, ample_cpu_affinity):
     session = LongResearchSession.start(
         workspace=tmp_path,
         constraints='circle packing workers2，cpu8，20min',
@@ -116,7 +122,7 @@ def test_registered_mlebench_input_discovery_uses_configured_root(tmp_path, monk
     assert discover_registered_input(session.task_package, workspace=tmp_path) == data
 
 
-def test_registered_explicit_dataset_is_remembered_per_workspace(tmp_path, monkeypatch):
+def test_registered_explicit_dataset_is_remembered_per_workspace(tmp_path, monkeypatch, ample_cpu_affinity):
     monkeypatch.delenv('MLEBENCH_DATA_ROOT_DIR', raising=False)
     data = tmp_path / 'external-datasets' / 'nomad-deep'
     data.mkdir(parents=True)
@@ -138,6 +144,16 @@ def test_registered_explicit_dataset_is_remembered_per_workspace(tmp_path, monke
 
     data.rmdir()
     assert discover_registered_input(session.task_package, workspace=tmp_path) is None
+
+
+@pytest.mark.parametrize('requested', [8, 16])
+def test_registered_cpu_count_rejects_requests_above_runner_capacity(tmp_path, monkeypatch, requested):
+    monkeypatch.setattr(os, 'sched_getaffinity', lambda _: set(range(4)))
+    session = LongResearchSession.start(workspace=tmp_path, constraints='circle-packing')
+    with pytest.raises(ValueError, match=f'CPU count {requested} exceeds the 4 unreserved CPUs'):
+        registered_preparation_fields(
+            session.task_package, f'workers=2 cpu={requested} duration=1h', workspace=tmp_path,
+        )
 
 
 def test_registered_cpu_count_skips_other_task_reservations(tmp_path, monkeypatch):
@@ -443,7 +459,7 @@ async def test_repeated_invalid_dataset_stops_retry_and_keeps_feedback_for_next_
 
 
 @pytest.mark.asyncio
-async def test_registered_unknown_direction_answer_reaches_preflight(tmp_path, monkeypatch):
+async def test_registered_unknown_direction_answer_reaches_preflight(tmp_path, monkeypatch, ample_cpu_affinity):
     data_root = tmp_path / 'mlebench'
     (data_root / 'nomad2018-predict-transparent-conductors/prepared/dataset_split/Deep').mkdir(parents=True)
     monkeypatch.setenv('MLEBENCH_DATA_ROOT_DIR', str(data_root))
@@ -465,7 +481,7 @@ async def test_registered_unknown_direction_answer_reaches_preflight(tmp_path, m
 
 
 @pytest.mark.asyncio
-async def test_registered_followup_resources_skip_host_agent(tmp_path, monkeypatch):
+async def test_registered_followup_resources_skip_host_agent(tmp_path, monkeypatch, ample_cpu_affinity):
     data_root = tmp_path / 'mlebench'
     data = data_root / 'nomad2018-predict-transparent-conductors/prepared/dataset_split/Deep'
     data.mkdir(parents=True)
