@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   minimal-install:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,6 +27,9 @@ jobs:
 
   compatibility-contracts:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTEST_ADDOPTS: "--timeout=90 --timeout-method=thread -o faulthandler_timeout=60"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,7 +37,7 @@ jobs:
           python-version: "3.12"
       - name: Install lightweight ScienceFlow contract environment
         run: |
-          python -m pip install -e . numpy pytest pytest-asyncio
+          python -m pip install -e . numpy pytest pytest-asyncio pytest-timeout
       - name: Verify CLI and provider adapters
         run: >-
           python -m pytest -q
@@ -52,17 +56,18 @@ jobs:
           tests/test_run_loop_tool_stream_retry.py
       - name: Verify TUI shell lifecycle and LongResearch integration
         run: >-
-          python -m pytest -q
+          python -m pytest -v --tb=short
           tests/test_tui_shell_safety.py
           tests/test_tui_sessions.py
           tests/test_tui_session_selection.py
+          tests/test_tui_model_config_isolation.py
           tests/test_long_research_interaction.py
           tests/test_long_research_onboarding.py
           tests/test_long_research_progress.py
           tests/test_research_preparation.py
       - name: Verify local execution and durable reports
         run: >-
-          python -m pytest -q
+          python -m pytest -v --tb=short
           tests/test_execution_location.py
           tests/test_tui_workspace_info.py
           tests/test_report_publication.py
