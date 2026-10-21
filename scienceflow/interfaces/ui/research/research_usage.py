@@ -99,7 +99,7 @@ class ResearchUsage:
                             model = extract_model_from_trace_detail(row.get('detail')) or '?'
                         else:
                             row = json.loads(raw)
-                            if row.get('phase') != 'completed':
+                            if row.get('phase') not in {'completed', 'failed'}:
                                 continue
                             identity = tuple(str(row.get(k, '')) for k in
                                              ('worker_id', 'session_id', 'run_id', 'turn_id', 'call_seq', 'attempt'))

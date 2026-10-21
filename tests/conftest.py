@@ -26,6 +26,7 @@ those paths after the session—use only when you accept losing local CLI output
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -40,9 +41,47 @@ from tests.fs_root import TEST_WORKSPACE_ROOT
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+def pytest_configure(config) -> None:
+    """Isolate defaults before collection imports and constructs CLI commands."""
+    patch = pytest.MonkeyPatch()
+    patch.setenv("XDG_CONFIG_HOME", str(TEST_WORKSPACE_ROOT / "collection-config"))
+    config.add_cleanup(patch.undo)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_test_workspace_root() -> None:
     TEST_WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+
+
+@pytest.fixture
+def research_model_registry(isolated_config_home):
+    """Local test data only; provider execution must be mocked by the caller."""
+    path = isolated_config_home / "scienceflow" / "models.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps({
+            "models": {
+                "test-model": {
+                    "model": "test-model",
+                    "endpoints": [{"url": "http://127.0.0.1:1/v1", "key": "test-only"}],
+                },
+            },
+            "defaults": {
+                "code_models": ["test-model"],
+                "feedback_models": ["test-model"],
+            },
+        }),
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.fixture(autouse=True)
+def isolated_config_home(tmp_path_factory, monkeypatch):
+    """Tests never inherit the developer's model registry or credentials."""
+    root = tmp_path_factory.mktemp("user-config")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(root))
+    return root
 
 
 @pytest.fixture

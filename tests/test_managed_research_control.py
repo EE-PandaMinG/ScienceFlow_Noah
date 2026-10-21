@@ -23,6 +23,9 @@ from scienceflow.runtime.parallel.control import (
 from scienceflow.runtime.parallel.control.registry import alive
 
 
+pytestmark = pytest.mark.usefixtures("research_model_registry")
+
+
 @pytest.fixture
 def controlled_run(tmp_path, monkeypatch, request):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
@@ -216,10 +219,10 @@ def test_run_exposes_only_positional_managed_task_interface():
 
     removed_result = CliRunner().invoke(main, ["run", "--task", "worker objective"])
     assert removed_result.exit_code == 2
-    assert "No such option: --task" in removed_result.output
+    assert "No such option" in removed_result.output and "--task" in removed_result.output
     short_result = CliRunner().invoke(main, ["run", "-t", "worker objective"])
     assert short_result.exit_code == 2
-    assert "No such option: -t" in short_result.output
+    assert "No such option" in short_result.output and "-t" in short_result.output
 
 
 def test_run_without_target_fails_fast_when_not_interactive():

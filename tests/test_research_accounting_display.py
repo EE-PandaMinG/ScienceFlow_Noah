@@ -231,6 +231,18 @@ def test_missing_usage_is_not_free_or_a_zero_cache_hit(tmp_path):
     assert 'Cost — (incomplete)' in usage.summary()
 
 
+def test_failed_provider_audit_usage_counts_once_in_task_cost(tmp_path):
+    path = tmp_path / 'calls.jsonl'
+    path.write_text(json.dumps(dict(phase='failed', model='custom', worker_id='w00',
+                                   call_seq=1, attempt=1, tokens_input=1_000_000,
+                                   tokens_output=100_000, tokens_cached=500_000)) + '\n')
+    usage = ResearchUsage(model_config(tmp_path / 'models.json'))
+    usage.read(path)
+    usage.read(path)
+    assert sum(value[0] for value in usage.totals.values()) == 1_000_000
+    assert usage.cost_totals()[0] == pytest.approx(.075 + .0015 + .06)
+
+
 def test_eec_counts_executed_interventions_not_proposals():
     facts = ResourceFacts()
     names = ['resource_job_started', 'resource_gpu_queue_wait_started', 'resource_gpu_lease_acquired',

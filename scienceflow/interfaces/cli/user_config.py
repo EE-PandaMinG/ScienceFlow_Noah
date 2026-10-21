@@ -40,6 +40,8 @@ def add_environment_options(command: click.Command, path: tuple[str, ...] = ()) 
     for param in command.params:
         if not isinstance(param, click.Option):
             continue
+        if param.name == "model_config":
+            param.default = default_model_config_path
         if param.name in {"workspace", "model", "model_config"} or getattr(
             param, "scienceflow_explicit_only", False
         ):

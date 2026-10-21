@@ -15,6 +15,9 @@ from scienceflow.research.onboarding import LongResearchDraft, LongResearchSessi
 from scienceflow.runtime.parallel.service import ParallelRunSummary
 
 
+pytestmark = pytest.mark.usefixtures("research_model_registry")
+
+
 class HistoryHost:
     busy = False
 
