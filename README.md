@@ -35,7 +35,7 @@ Install ScienceFlow with <a href="https://pipx.pypa.io/latest/how-to/install-pip
 the command is available from any directory while its Python dependencies remain isolated:
 
 ```bash
-pipx install scienceflow==0.2.0b9
+pipx install scienceflow==0.2.0b10
 scienceflow --help
 ```
 
@@ -47,13 +47,13 @@ scienceflow --help
 ```bash
 conda create -n scienceflow python=3.12 -y
 conda activate scienceflow
-python -m pip install scienceflow==0.2.0b9
+python -m pip install scienceflow==0.2.0b10
 ```
 
 **uv**
 
 ```bash
-uv tool install scienceflow==0.2.0b9
+uv tool install scienceflow==0.2.0b10
 ```
 
 **Python virtual environment**
@@ -61,7 +61,7 @@ uv tool install scienceflow==0.2.0b9
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install scienceflow==0.2.0b9
+python -m pip install scienceflow==0.2.0b10
 ```
 
 </details>
@@ -184,7 +184,7 @@ dependencies only when needed:
 </p>
 
 ```bash
-python -m pip install "scienceflow[full]"==0.2.0b9
+python -m pip install "scienceflow[full]"==0.2.0b10
 ```
 
 <p align="justify">

@@ -1576,14 +1576,14 @@ wheels = [
 
 [[package]]
 name = "inquirycraft"
-version = "0.9.4"
+version = "0.9.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/65/41/8aae3b866ebe1a072dc578613fec8f9525345381912cb3c9738d184f6085/inquirycraft-0.9.4.tar.gz", hash = "sha256:4ec569324b97f43ca4bfa98a4134e3bc69f9344afbc94f63eadbdec7626b99e2", size = 206175, upload-time = "2026-10-14T18:25:12.273Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/d1/24de177ccd69244e6eb2593202af086a6e9e89770e95f622e5401d74670f/inquirycraft-0.9.6.tar.gz", hash = "sha256:9b7ecf768125d96f6e14cec7ed3886d80e9f522fc7408fac149fb4550a82de03", size = 214457, upload-time = "2026-10-21T15:57:27.862Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/24/0716976342aea07e781e88ad82877e7c79f98fa666129a914b0632635124/inquirycraft-0.9.4-py3-none-any.whl", hash = "sha256:57a396766f53b72a4c124b836e4ce154ff4fefacf4c845dbad0a6fe846d51265", size = 263089, upload-time = "2026-10-14T18:25:10.349Z" },
+    { url = "https://files.pythonhosted.org/packages/16/e3/73070ff600953979b6147ee6047a8708798a2568acd3118aec75f199e760/inquirycraft-0.9.6-py3-none-any.whl", hash = "sha256:871277ff97adbba9880cf9260aa49691b7116f76585f768825f331d3b3276bc6", size = 273385, upload-time = "2026-10-21T15:57:26.333Z" },
 ]
 
 [package.optional-dependencies]
@@ -4305,7 +4305,7 @@ wheels = [
 
 [[package]]
 name = "scienceflow"
-version = "0.2.0b9"
+version = "0.2.0b10"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -4430,8 +4430,8 @@ requires-dist = [
     { name = "ensemble-boxes", marker = "extra == 'detection-2d'", specifier = ">=1.0" },
     { name = "ensemble-boxes", marker = "extra == 'full'", specifier = ">=1.0" },
     { name = "httpx", specifier = ">=0.27" },
-    { name = "inquirycraft", extras = ["mcp"], marker = "extra == 'inquirycraft-mcp'", specifier = "==0.9.4" },
-    { name = "inquirycraft", extras = ["openai", "tui"], specifier = "==0.9.4" },
+    { name = "inquirycraft", extras = ["mcp"], marker = "extra == 'inquirycraft-mcp'", specifier = "==0.9.6" },
+    { name = "inquirycraft", extras = ["openai", "tui"], specifier = "==0.9.6" },
     { name = "lazy-loader", specifier = ">=0.4" },
     { name = "librosa", marker = "extra == 'full'", specifier = ">=0.10" },
     { name = "librosa", marker = "extra == 'gpu'", specifier = ">=0.10" },
