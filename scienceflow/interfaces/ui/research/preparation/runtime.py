@@ -67,6 +67,7 @@ async def run_preparation_task(
         options,
         model=",".join(resolved.models),
         workspace=owner.task_workspace,
+        max_turns=options.max_turns if options.max_turns is not None else 20,
         session_id="",
         run_id="",
         session_log=None,

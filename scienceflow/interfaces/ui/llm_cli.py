@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 
 import click
 from inquirycraft.adapters import AskLLMAdapter
 from inquirycraft.cli import ChatMonitor
+from inquirycraft.cli.chat_profiles import ChatProfile, ProfileStore
+from inquirycraft.llm import SameRoundRetryPolicy
 from inquirycraft.memory import Conversation, JsonlConversationStore
 from inquirycraft.runtime import AgentRuntime
 from inquirycraft.tools import (
@@ -18,8 +21,46 @@ from inquirycraft.tools import (
 )
 
 from scienceflow.foundation.config.llm.llm_factory import build_stage_llm
+from scienceflow.foundation.config.llm.model_registry import default_model_config_path
 from scienceflow.foundation.config.runtime.llm_lists import values
 from scienceflow.foundation.config.schema.settings import StageConfig
+
+
+class _ScienceFlowProfileStore(ProfileStore):
+    """Keep chat profiles in SF while reading an existing IQ profile on first use."""
+
+    def __init__(self):
+        super().__init__(default_model_config_path().with_name("chat_profiles.json"))
+        self._legacy = ProfileStore()
+
+    def load(self, key):
+        for store in (self, self._legacy):
+            if store.path.exists() and key in json.loads(store.path.read_text()):
+                return super().load(key) if store is self else store.load(key)
+        return ChatProfile(output_reserve=32768).validate()
+
+
+class _ScienceFlowChatMonitor(ChatMonitor):
+    """Expose the effective backend limit with both released and source IQ."""
+
+    @property
+    def output_limit(self):
+        instances = getattr(self.backend, "_instances", [self.backend])
+        return min(int(instance.max_tokens) for instance in instances)
+
+    def _sync_output_limit(self):
+        instances = getattr(self.backend, "_instances", [self.backend])
+        if self.runtime is not None and instances:
+            self.runtime.options = replace(self.runtime.options, max_tokens=self.output_limit)
+
+    def bind(self, runtime):
+        bound = super().bind(runtime)
+        self._sync_output_limit()
+        return bound
+
+    def set_profile(self, index, profile):
+        super().set_profile(index, profile)
+        self._sync_output_limit()
 
 
 class PoolRuntimeFactory:
@@ -28,14 +69,16 @@ class PoolRuntimeFactory:
 
     def create_runtime(self, options, *, api_key, base_url, event_sink, tools=None):
         models = values(options.model)
-        if not models or not values(api_key):
+        keys = values(api_key)
+        endpoints = values(base_url)
+        if not models or not keys:
             raise click.ClickException(
                 "models and api_keys must each contain at least one value"
             )
         stage = StageConfig(
             models=models,
-            api_keys=values(api_key),
-            base_urls=values(base_url),
+            api_keys=keys,
+            base_urls=endpoints,
             max_tokens=options.max_tokens or 32768,
             http_timeout=options.timeout or 300,
             api_routing_mode=options.model_routing,
@@ -47,16 +90,22 @@ class PoolRuntimeFactory:
         store = (
             JsonlConversationStore(options.session_log) if options.session_log else None
         )
-        monitor = ChatMonitor(
+        monitor = _ScienceFlowChatMonitor(
             options,
             client.backend,
-            values(base_url),
+            endpoints,
             models,
-            len(values(api_key)),
+            len(keys),
+            store=_ScienceFlowProfileStore(),
         )
         return monitor.bind(
             AgentRuntime(
                 llm=client,
+                llm_retry_policy=SameRoundRetryPolicy(
+                    max_attempts=3,
+                    base_delay_sec=1.0,
+                    max_delay_sec=4.0,
+                ),
                 compaction_policy=monitor.policy(),
                 provider_observer=monitor,
                 options=replace(options, model=models[0]),
