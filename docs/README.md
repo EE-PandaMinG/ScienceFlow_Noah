@@ -10,6 +10,7 @@
 - [`plans/current/`](plans/current/)：正在执行的版本规划、owner matrix 与结构基线。
 - [`plans/archive/`](plans/archive/)：已经完成或被替代的历史规划。
 - [`benchmark/`](benchmark/)：Bench SF 定义与资源 workspace 审计。
+- [`validation/`](validation/cli-tui.md)：可重复执行的本地功能与启动性能验证任务。
 - [`evidence/`](evidence/)：正式验收与失败样本的不可变证据。
 - [`baselines/`](baselines/)：历史效果门禁、运行基线与机器可读报告。
 - [`history/runtime_migration/`](history/runtime_migration/)：DeepCraft/InquiryCraft 迁移阶段、审计与验证记录。
